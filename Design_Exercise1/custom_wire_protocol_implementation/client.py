@@ -13,6 +13,7 @@ current_user = None
 # conversations: key=contact, value=list of message dicts {id, from, message, status}
 conversations = {}
 chat_windows = {}   # open chat windows
+undelivered = {} # saves undelivered message
 subscription_socket = None
 
 # Helper: Add a message if its ID isn’t already present, or update it if it exists.
@@ -182,7 +183,7 @@ def chat_window(contact):
         chat_text.configure(state=tk.NORMAL)
         chat_text.delete(1.0, tk.END)
         if contact in conversations:
-            for m in conversations[contact]:
+            for m in conversations[contact]: # TODO CAP ENTRANCE
                 if m.get("status") == "deleted":
                     continue
                 sender_disp = "You" if m["from"]==current_user else m["from"]
@@ -193,6 +194,7 @@ def chat_window(contact):
     chat_win.refresh_chat_text = refresh_chat_text
 
     message_entry = tk.Entry(chat_win, width=40)
+    message_entry.insert(0, undelivered.get(contact, "")) # prints out the saved undelivered message
     message_entry.pack(pady=5)
 
     def send_message():
@@ -234,7 +236,15 @@ def chat_window(contact):
                         messagebox.showerror("Error", response if response else "No response from server.")
     chat_text.bind("<Double-Button-1>", on_message_double_click)
 
-    chat_win.protocol("WM_DELETE_WINDOW", lambda: (chat_win.destroy(), update_conversation_list()))
+    def save_undelivered():
+        """
+            Saves undelivered message in the message entry so that when user closes the chat window and then reopens, the undelivered message is still present
+        """
+        print("DEBUG", message_entry.get().strip())
+        undelivered[contact] = message_entry.get().strip()
+        return
+    
+    chat_win.protocol("WM_DELETE_WINDOW", lambda: (save_undelivered(), chat_win.destroy(), update_conversation_list()))
 
 def update_chat_window(contact):
     if contact in chat_windows and chat_windows[contact].winfo_exists():
@@ -299,6 +309,7 @@ def logout():
     chat_frame.pack_forget()
     login_frame.pack()
     new_conversation_entry.delete(0, tk.END)
+    undelivered.clear()
 
 root = tk.Tk()
 root.title("Chat Application")
