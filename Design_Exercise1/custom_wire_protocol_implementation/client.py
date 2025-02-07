@@ -1,5 +1,6 @@
 import socket
 import tkinter as tk
+from tkinter import ttk
 from tkinter import messagebox, scrolledtext
 import threading
 import struct
@@ -43,27 +44,23 @@ def send_request(request_type, data):
         messagebox.showerror("Error", f"Connection failed: {e}")
         return None
 
-def update_username_suggestions(event=None):
-    text = username_entry.get().strip()
-    if text == "":
-        suggestions_listbox.delete(0, tk.END)
-        return
-    prefix = text
-    response = send_request(3, prefix) 
-    if response and response.startswith("success"):
-        suggestions_listbox.delete(0, tk.END)
-        users_list = response.split(':')[1].split('\n')
-        for user in users_list:
-            suggestions_listbox.insert(tk.END, user)
-    else:
-        suggestions_listbox.delete(0, tk.END)
+def update_username_suggestions(event, entry, entry_var):
+    """Update the dropdown options for username based on user input."""
+    typed = entry_var.get().lower()
+    
+    try:
+        username_options = ast.literal_eval(send_request(3, "empty"))  # Ensure valid list
+        print(username_options)
+        if not isinstance(username_options, list):  # Extra safety check
+            username_options = []
+    except (SyntaxError, ValueError):
+        username_options = []  # Handle bad responses safely
 
-def on_suggestion_select(event):
-    selection = suggestions_listbox.curselection()
-    if selection:
-        username_entry.delete(0, tk.END)
-        username_entry.insert(0, suggestions_listbox.get(selection[0]))
-        suggestions_listbox.delete(0, tk.END)
+    if typed == "":
+        entry["values"] = username_options  # Reset to all options
+    else:
+        filtered = [item for item in username_options if typed in item.lower()]
+        entry["values"] = filtered
 
 def login():
     global current_user
@@ -81,6 +78,8 @@ def login():
         load_conversations()
         check_new_messages()
         threading.Thread(target=subscribe_thread, daemon=True).start()
+        username_entry.delete(0, tk.END)
+        password_entry.delete(0, tk.END)
     else:
         messagebox.showerror("Login Failed", response if response else "No response from server.")
 
@@ -259,22 +258,14 @@ def start_new_conversation():
     if not recipient:
         messagebox.showwarning("Input Error", "Recipient cannot be empty.")
         return
-    if recipient == "*":
-        list_users()
-        return
     if recipient == current_user:
         messagebox.showwarning("Input Error", "You cannot chat with yourself.")
         return
 
     # Check if the recipient exists.
-    response = send_request(3, recipient)
-    if response and response.startswith("success"):
-        users_list = response.split(':')[1].split('\n')
-        if recipient not in users_list:
-            messagebox.showwarning("Input Error", f"User '{recipient}' does not exist.")
-            return
-    else:
-        messagebox.showerror("Error", "Failed to verify recipient.")
+    users_list = ast.literal_eval(send_request(3, "empty"))
+    if recipient not in users_list:
+        messagebox.showwarning("Input Error", f"User '{recipient}' does not exist.")
         return
 
     if recipient in conversations:
@@ -283,15 +274,6 @@ def start_new_conversation():
         conversations[recipient] = []
         update_conversation_list()
         chat_window(recipient)
-
-
-def list_users():
-    response = send_request(3, "*")
-    if response and response.startswith("success"):
-        users_list = response.split(':')[1]
-        messagebox.showinfo("Users", users_list)
-    else:
-        messagebox.showerror("Error", response if response else "No response from server.")
 
 def delete_account(): 
     if messagebox.askyesno("Confirm", "Delete your account?"):
@@ -325,16 +307,20 @@ root.geometry("400x500")
 # Login Frame
 login_frame = tk.Frame(root)
 tk.Label(login_frame, text="Username:").pack()
-username_entry = tk.Entry(login_frame)
+
+username_options = ast.literal_eval(send_request(3, "empty"))
+username_entry_var = tk.StringVar()
+username_entry = ttk.Combobox(login_frame, textvariable=username_entry_var, width=20)
+username_entry["values"] = username_options
 username_entry.pack()
-# Bind key release to update suggestions
-username_entry.bind("<KeyRelease>", update_username_suggestions)
-suggestions_listbox = tk.Listbox(login_frame, height=4, width=30)
-suggestions_listbox.pack()
-suggestions_listbox.bind("<<ListboxSelect>>", on_suggestion_select)
+# Bind the KeyRelease event to update suggestions when typing
+username_entry.bind("<KeyRelease>", lambda event: update_username_suggestions(event, username_entry, username_entry_var))
+# Bind the FocusIn event to trigger suggestions when the combobox is clicked or gains focus
+username_entry.bind("<FocusIn>", lambda event: update_username_suggestions(event, username_entry, username_entry_var))
+
 
 tk.Label(login_frame, text="Password:").pack()
-password_entry = tk.Entry(login_frame, show="*")
+password_entry = tk.Entry(login_frame, show="*", width=22)
 password_entry.pack()
 tk.Button(login_frame, text="Login", command=login).pack(pady=5)
 tk.Button(login_frame, text="Register", command=register).pack(pady=5)
@@ -344,9 +330,18 @@ login_frame.pack()
 chat_frame = tk.Frame(root)
 chat_label = tk.Label(chat_frame, text="Chat")
 chat_label.pack()
-new_conversation_entry = tk.Entry(chat_frame, width=30)
+
+tk.Label(chat_frame, text="Enter New Recipient:").pack()
+new_conversation_entry_var = tk.StringVar()
+new_conversation_entry = ttk.Combobox(chat_frame, textvariable=new_conversation_entry_var, width=30)
+new_conversation_entry["values"] = username_options
 new_conversation_entry.pack()
+# Bind the KeyRelease event to update suggestions when typing
+new_conversation_entry.bind("<KeyRelease>", lambda event: update_username_suggestions(event, new_conversation_entry, new_conversation_entry_var))
+# Bind the FocusIn event to trigger suggestions when the combobox is clicked or gains focus
+new_conversation_entry.bind("<FocusIn>", lambda event: update_username_suggestions(event, new_conversation_entry, new_conversation_entry_var))
 tk.Button(chat_frame, text="Start New Chat", command=start_new_conversation).pack(pady=5)
+
 conversation_list = tk.Listbox(chat_frame, height=10, width=40)
 conversation_list.pack()
 conversation_list.bind("<Double-Button-1>", lambda _: open_chat())

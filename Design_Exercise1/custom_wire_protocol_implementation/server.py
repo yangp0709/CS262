@@ -70,23 +70,18 @@ def handle_login(msg_data):
         response = "error: Invalid username or password"
     return response
 
-def handle_list_users(msg_data):
+def handle_list_users():
     """
-      Handle a list user request
+      Returns a list of active users
 
       Params:
-        msg_data: data from client containing the prefix you are trying to match with
+        None
       Returns:
-        response: string for status of matching and list of all of the matched users
+        response: string of list of active users
     """
-    prefix = msg_data
-    # matched = [u for u in users.keys() if u.startswith(prefix)] if prefix != "*" else list(users.keys())
-    if prefix == "*":
-        matched = [u for u, data in users.items() if not data.get("deleted", False)]
-    else:
-        matched = [u for u, data in users.items() if u.startswith(prefix) and not data.get("deleted", False)]
-    response = "success:"+"\n".join(matched)
-    return response
+    active_users_list = str([u for u, data in users.items() if not data.get("deleted", False)])
+    print('ACTIVE')
+    return active_users_list
 
 def handle_send(msg_data):
     """
@@ -259,7 +254,8 @@ def handle_client(conn, addr):
                 response = handle_login(msg_data)
             
             elif msg_type == 3:  # List Users
-                response = handle_list_users(msg_data)
+                print('NOTHING')
+                response = handle_list_users()
             
             elif msg_type == 4:  # Send Message
                 response = handle_send(msg_data)
