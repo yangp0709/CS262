@@ -35,7 +35,10 @@ def send_request(request_type, data):
         
         # Pack data using struct
         message = struct.pack("!I", request_type) + data.encode()
-        client.send(message)
+        try:
+            client.send(message)
+        except Exception as e:
+            print(f"Error sending data to socket {client.fileno()}: {e}")
         
         # Receive response
         response = client.recv(4096)
@@ -51,7 +54,6 @@ def update_username_suggestions(event, entry, entry_var):
     
     try:
         username_options = ast.literal_eval(send_request(3, "empty"))  # Ensure valid list
-        print(username_options)
         if not isinstance(username_options, list):  # Extra safety check
             username_options = []
     except (SyntaxError, ValueError):
@@ -105,7 +107,10 @@ def subscribe_thread():
         request_type = 5
         data = current_user
         message = struct.pack("!I", request_type) + data.encode()
-        subscription_socket.send(message)
+        try:
+            subscription_socket.send(message)
+        except Exception as e:
+            print(f"Error sending data to socket {subscription_socket.fileno()}: {e}")
 
         while current_user:
             response = subscription_socket.recv(4096)
@@ -113,7 +118,6 @@ def subscribe_thread():
 
             if response and response.startswith("success"):
                 message_data = ast.literal_eval(response.split(':', 1)[1])
-                print("MESSAGE_DATA:", message_data, type(message_data))
                 sender = message_data["from"]
                 if add_message(sender, message_data):
                     update_conversation_list()
@@ -283,7 +287,6 @@ def chat_window(contact):
             if m_contact["from"]==contact and m_contact["status"]=="unread" and unread_counter < read_batch_num:
                 # mark as read
                 m_contact["status"] = "read"
-                print('READ STATUS', m_contact["status"])
                 unread_counter += 1
                 # display message
                 sender_disp = "You" if m_contact["from"]==current_user else m_contact["from"]
@@ -350,7 +353,10 @@ def logout():
     if subscription_socket:
         try:
             subscription_socket.close()
-        except Exception:
+        except Exception as e:
+            print(f"[ERROR] Failed to close subscription socket: {e}")
+            # Log the failure, but don't block the UI update
+            print("Warning: Unable to disconnect from the server properly.")
             pass
         subscription_socket = None
     chat_frame.pack_forget()

@@ -15,14 +15,22 @@ users = {}
 subscribers = {}
 subscribers_lock = threading.Lock()
 
-def clear_users():
+def handle_exit():
     """
-      Clear stored users and messages
+      Clear stored users, messages, and subscribers
     """
+    print("[INFO] Shutting down server gracefully...")
     users.clear()
+    for conn in subscribers.values():
+        try:
+            conn.close()  # Ensure all connections are closed properly
+        except Exception as e:
+            print(f"[ERROR] Failed to close connection: {e}")
+    print("[INFO] All connections closed.")
+
 
 # Clear users automatically when the program terminates.
-atexit.register(clear_users)
+atexit.register(handle_exit)
 
 def hash_password(password):
     """
@@ -80,7 +88,6 @@ def handle_list_users():
         response: string of list of active users
     """
     active_users_list = str([u for u, data in users.items() if not data.get("deleted", False)])
-    print('ACTIVE')
     return active_users_list
 
 def handle_send(msg_data):
@@ -110,12 +117,13 @@ def handle_send(msg_data):
         response = "error: Recipient not found"
     return response
 
-def handle_subscribe(conn, msg_data):
+def handle_subscribe(conn, addr, msg_data):
     """
       Handles a user's subscription request.
 
       Params:
         conn: Client socket
+        addr: Address of client
         msg_data: data from client containing the username of the subscribing client.
 
       Returns:
@@ -123,7 +131,10 @@ def handle_subscribe(conn, msg_data):
     """
     username = msg_data
     if username not in users:
-        conn.send("error: User not found.".encode())
+        try:
+            conn.send("error: User not found.".encode())
+        except Exception as e:
+            print(f"[ERROR] Error sending data to {addr}: {e}")
         return
 
     # Register the subscriber
@@ -140,6 +151,7 @@ def handle_subscribe(conn, msg_data):
         try:
             conn.send(f"success:{str(msg)}".encode())
         except Exception:
+            print(f"[ERROR] Error sending data to {addr}: {e}")
             break
     
     # Clean up the subscriber when loop exits
@@ -246,7 +258,12 @@ def handle_client(conn, addr):
             if not request_type_data:
                 return
             
-            msg_type = struct.unpack("!I", request_type_data)[0]
+            try:
+                msg_type = struct.unpack("!I", request_type_data)[0]
+            except struct.error as e:
+                # send error message to the client
+                conn.send("error: Invalid message format".encode())
+                continue
             print('MSG_TYPE', msg_type)
             msg_data = conn.recv(4096).decode()
 
@@ -257,14 +274,13 @@ def handle_client(conn, addr):
                 response = handle_login(msg_data)
             
             elif msg_type == 3:  # List Users
-                print('NOTHING')
                 response = handle_list_users()
             
             elif msg_type == 4:  # Send Message
                 response = handle_send(msg_data)
             
             elif msg_type == 5:  # Subscribe
-                handle_subscribe(conn, msg_data)
+                handle_subscribe(conn, addr, msg_data)
                 break # Exit from handling subscription
             
             elif msg_type == 6:  # Mark Read
@@ -282,9 +298,12 @@ def handle_client(conn, addr):
                 response = "Unknown request type"
             
             if msg_type != 5: # not subscribe
-                conn.send(response.encode())
+                try:
+                    conn.send(response.encode())
+                except Exception as e:
+                    print(f"[ERROR] Error sending data to {addr}: {e}")
         except Exception as e:
-            print(f"[ERROR] {e}")
+            print(f"[ERROR] {e} during client {addr} communication.")
             break
     conn.close()
     print(f"[DISCONNECTED] {addr} disconnected.")
