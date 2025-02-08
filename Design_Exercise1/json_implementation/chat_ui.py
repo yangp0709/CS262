@@ -13,6 +13,7 @@ conversations = {}
 chat_windows = {}
 subscription_socket = None
 options = []
+unsent_texts = {}
 
 def add_message(contact, msg):
     """
@@ -51,25 +52,22 @@ def send_request(request):
 
 def load_all_usernames():
     """Load all usernames from the server into the global options list."""
-    global options
-    response = send_request({"type": "list_users", "prefix": "*"})
-    if response and response["status"] == "success":
-        options = response["users"]
-        username_combobox["values"] = options
+    update_username_suggestions(None, username_combobox, username_var)
+    if current_user:
+        update_username_suggestions(None, recipient_combobox, recipient_var, exclude_self=True)
 
-def update_options(event):
-    """Update the combobox dropdown options based on user input."""
-    typed = username_var.get().lower()
-    if typed == "":
-        username_combobox["values"] = options
-    else:
-        filtered = [item for item in options if typed in item.lower()]
-        username_combobox["values"] = filtered
+def update_username_suggestions(event, combobox, var, exclude_self=False):
+    typed = var.get().lower() if var.get() else ""
+    response = send_request({"type": "list_users", "prefix": "*"})
+    suggestions = response["users"] if response and response.get("status") == "success" else []
+    if exclude_self and current_user in suggestions:
+        suggestions.remove(current_user)
+    if typed:
+         suggestions = [s for s in suggestions if typed in s.lower()]
+    combobox["values"] = suggestions
 
 def login():
-    """
-    Handle the "Login" button being clicked.
-    """
+    """Handle the 'Login' button click."""
     global current_user
     username = username_var.get().strip()
     password = password_entry.get().strip()
@@ -82,6 +80,7 @@ def login():
         login_frame.pack_forget()
         chat_frame.pack()
         chat_label.config(text=f"Chat - Logged in as {username}")
+        recipient_combobox["values"] = [u for u in options if u != current_user]
         load_conversations()
         check_new_messages()
         threading.Thread(target=subscribe_thread, daemon=True).start()
@@ -163,7 +162,6 @@ def update_conversation_list():
     for contact, msgs in conversations.items():
         visible = [m for m in msgs if m.get("status") != "deleted"]
         unread = sum(1 for m in visible if m["status"] == "unread" and m["from"] == contact)
-        # Display only contact name + unread count with red dot (if any)
         unread_indicator = f" 🔴({unread} unread)" if unread > 0 else ""
         display = f"{contact}{unread_indicator}"
         conversation_list.insert(tk.END, display)
@@ -198,6 +196,7 @@ def chat_window(contact):
     chat_win.title(f"Chat with {contact}")
     chat_windows[contact] = chat_win
 
+    # Mark unread messages as read
     if any(m["from"] == contact and m["status"] == "unread" for m in conversations.get(contact, [])):
         send_request({"type": "mark_read", "username": current_user, "contact": contact})
         for m in conversations.get(contact, []):
@@ -225,7 +224,9 @@ def chat_window(contact):
     refresh_chat_text()
     chat_win.refresh_chat_text = refresh_chat_text
 
+    # Create the message entry and prefill with any saved unsent text.
     message_entry = tk.Entry(chat_win, width=40)
+    message_entry.insert(0, unsent_texts.get(contact, ""))
     message_entry.pack(pady=5)
 
     def send_message():
@@ -250,6 +251,7 @@ def chat_window(contact):
             update_conversation_list()
             update_chat_window(contact)
             message_entry.delete(0, tk.END)
+            unsent_texts[contact] = ""
         else:
             messagebox.showerror("Error", response["message"] if response else "No response from server.")
     send_button = tk.Button(chat_win, text="Send", command=send_message)
@@ -289,7 +291,19 @@ def chat_window(contact):
                         messagebox.showerror("Error", response["message"] if response else "No response from server.")
     chat_text.bind("<Double-Button-1>", on_message_double_click)
 
-    chat_win.protocol("WM_DELETE_WINDOW", lambda: (chat_win.destroy(), update_conversation_list()))
+    def on_close_chat_window():
+        """
+        Save the unsent message before closing the window.
+
+        This function is called when the user closes a chat window. It will save
+        the current contents of the message entry box to the unsent_texts dictionary
+        for the contact the window is for.
+        """
+        unsent_texts[contact] = message_entry.get().strip()
+        chat_win.destroy()
+        update_conversation_list()
+
+    chat_win.protocol("WM_DELETE_WINDOW", on_close_chat_window)
 
 def update_chat_window(contact):
     """
@@ -335,7 +349,7 @@ def start_new_conversation():
     user), and then either open a new chat window if the conversation doesn't
     already exist, or switch to the existing chat window if it does.
     """
-    recipient = new_conversation_entry.get().strip()
+    recipient = recipient_var.get().strip()
     if not recipient:
         messagebox.showwarning("Input Error", "Recipient cannot be empty.")
         return
@@ -394,7 +408,7 @@ def delete_account():
         else:
             messagebox.showerror("Error", response["message"] if response else "No response from server.")
 
-def logout():    
+def logout():
     """
     Log out of the chat application.
 
@@ -411,8 +425,9 @@ def logout():
         subscription_socket = None
     chat_frame.pack_forget()
     login_frame.pack()
-    new_conversation_entry.delete(0, tk.END)
+    recipient_var.set("")
     load_all_usernames()
+    unsent_texts.clear()
 
 root = tk.Tk()
 root.title("Chat Application")
@@ -424,9 +439,8 @@ tk.Label(login_frame, text="Username:").pack()
 username_var = tk.StringVar()
 username_combobox = ttk.Combobox(login_frame, textvariable=username_var)
 username_combobox.pack()
-username_combobox.bind("<KeyRelease>", update_options)
-load_all_usernames()
-
+username_combobox.bind("<KeyRelease>", lambda e: update_username_suggestions(e, username_combobox, username_var))
+username_combobox.bind("<FocusIn>", lambda e: update_username_suggestions(e, username_combobox, username_var))
 tk.Label(login_frame, text="Password:").pack()
 password_entry = tk.Entry(login_frame, show="*")
 password_entry.pack()
@@ -437,13 +451,21 @@ login_frame.pack()
 chat_frame = tk.Frame(root)
 chat_label = tk.Label(chat_frame, text="Chat")
 chat_label.pack()
-new_conversation_entry = tk.Entry(chat_frame, width=30)
-new_conversation_entry.pack()
+tk.Label(chat_frame, text="Enter New Recipient:").pack()
+
+recipient_var = tk.StringVar()
+recipient_combobox = ttk.Combobox(chat_frame, textvariable=recipient_var, width=30)
+recipient_combobox.config(postcommand=lambda: update_username_suggestions(None, recipient_combobox, recipient_var, exclude_self=True))
+recipient_combobox.pack()
+recipient_combobox.bind("<KeyRelease>", lambda e: update_username_suggestions(e, recipient_combobox, recipient_var, exclude_self=True))
+recipient_combobox.bind("<FocusIn>", lambda e: update_username_suggestions(e, recipient_combobox, recipient_var, exclude_self=True))
 tk.Button(chat_frame, text="Start New Chat", command=start_new_conversation).pack(pady=5)
+
 conversation_list = tk.Listbox(chat_frame, height=10, width=40)
 conversation_list.pack()
 conversation_list.bind("<Double-Button-1>", lambda _: open_chat())
 tk.Button(chat_frame, text="Logout", command=logout).pack(pady=5)
 tk.Button(chat_frame, text="Delete Account", command=delete_account).pack(pady=5)
 
+load_all_usernames()
 root.mainloop()
