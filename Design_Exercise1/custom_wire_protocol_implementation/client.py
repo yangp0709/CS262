@@ -149,7 +149,6 @@ def update_conversation_list():
         unread_indicator = f" 🔴({unread} unread)" if unread > 0 else ""
         display = f"{contact}{unread_indicator}"
         conversation_list.insert(tk.END, display)
-    return unread
 
 def open_chat():
     selection = conversation_list.curselection()
