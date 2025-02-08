@@ -5,6 +5,7 @@ from tkinter import messagebox, scrolledtext
 import threading
 import struct
 import ast
+from chat_ui_objects import root, login_frame, username_entry_var, username_entry, password_entry, chat_frame, chat_label, new_conversation_entry_var, new_conversation_entry, conversation_list
 
 SERVER_HOST = "localhost"
 SERVER_PORT = 5001
@@ -364,52 +365,44 @@ def logout():
     new_conversation_entry.delete(0, tk.END)
     undelivered.clear()
 
-root = tk.Tk()
-root.title("Chat Application")
-root.geometry("400x500")
+def run_gui():
+    root.title("Chat Application")
+    root.geometry("400x500")
 
-# Login Frame
-login_frame = tk.Frame(root)
-tk.Label(login_frame, text="Username:").pack()
+    # Login Frame
+    tk.Label(login_frame, text="Username:").pack()
 
-username_options = ast.literal_eval(send_request(3, "empty"))
-username_entry_var = tk.StringVar()
-username_entry = ttk.Combobox(login_frame, textvariable=username_entry_var, width=20)
-username_entry["values"] = username_options
-username_entry.pack()
-# Bind the KeyRelease event to update suggestions when typing
-username_entry.bind("<KeyRelease>", lambda event: update_username_suggestions(event, username_entry, username_entry_var))
-# Bind the FocusIn event to trigger suggestions when the combobox is clicked or gains focus
-username_entry.bind("<FocusIn>", lambda event: update_username_suggestions(event, username_entry, username_entry_var))
+    username_options = ast.literal_eval(send_request(3, "empty"))
+    username_entry["values"] = username_options
+    username_entry.pack()
+    # Bind the KeyRelease event to update suggestions when typing
+    username_entry.bind("<KeyRelease>", lambda event: update_username_suggestions(event, username_entry, username_entry_var))
+    # Bind the FocusIn event to trigger suggestions when the combobox is clicked or gains focus
+    username_entry.bind("<FocusIn>", lambda event: update_username_suggestions(event, username_entry, username_entry_var))
 
+    tk.Label(login_frame, text="Password:").pack()
+    password_entry.pack()
+    tk.Button(login_frame, text="Login", command=login).pack(pady=5)
+    tk.Button(login_frame, text="Register", command=register).pack(pady=5)
+    login_frame.pack()
 
-tk.Label(login_frame, text="Password:").pack()
-password_entry = tk.Entry(login_frame, show="*", width=22)
-password_entry.pack()
-tk.Button(login_frame, text="Login", command=login).pack(pady=5)
-tk.Button(login_frame, text="Register", command=register).pack(pady=5)
-login_frame.pack()
+    # Chat Frame
+    chat_label.pack()
+    tk.Label(chat_frame, text="Enter New Recipient:").pack()
 
-# Chat Frame
-chat_frame = tk.Frame(root)
-chat_label = tk.Label(chat_frame, text="Chat")
-chat_label.pack()
+    new_conversation_entry["values"] = username_options
+    new_conversation_entry.pack()
+    # Bind the KeyRelease event to update suggestions when typing
+    new_conversation_entry.bind("<KeyRelease>", lambda event: update_username_suggestions(event, new_conversation_entry, new_conversation_entry_var))
+    # Bind the FocusIn event to trigger suggestions when the combobox is clicked or gains focus
+    new_conversation_entry.bind("<FocusIn>", lambda event: update_username_suggestions(event, new_conversation_entry, new_conversation_entry_var))
+    tk.Button(chat_frame, text="Start New Chat", command=start_new_conversation).pack(pady=5)
+    conversation_list.pack()
+    conversation_list.bind("<Double-Button-1>", lambda _: open_chat())
+    tk.Button(chat_frame, text="Logout", command=logout).pack(pady=5)
+    tk.Button(chat_frame, text="Delete Account", command=delete_account).pack(pady=5)
 
-tk.Label(chat_frame, text="Enter New Recipient:").pack()
-new_conversation_entry_var = tk.StringVar()
-new_conversation_entry = ttk.Combobox(chat_frame, textvariable=new_conversation_entry_var, width=30)
-new_conversation_entry["values"] = username_options
-new_conversation_entry.pack()
-# Bind the KeyRelease event to update suggestions when typing
-new_conversation_entry.bind("<KeyRelease>", lambda event: update_username_suggestions(event, new_conversation_entry, new_conversation_entry_var))
-# Bind the FocusIn event to trigger suggestions when the combobox is clicked or gains focus
-new_conversation_entry.bind("<FocusIn>", lambda event: update_username_suggestions(event, new_conversation_entry, new_conversation_entry_var))
-tk.Button(chat_frame, text="Start New Chat", command=start_new_conversation).pack(pady=5)
+    root.mainloop()
 
-conversation_list = tk.Listbox(chat_frame, height=10, width=40)
-conversation_list.pack()
-conversation_list.bind("<Double-Button-1>", lambda _: open_chat())
-tk.Button(chat_frame, text="Logout", command=logout).pack(pady=5)
-tk.Button(chat_frame, text="Delete Account", command=delete_account).pack(pady=5)
-
-root.mainloop()
+if __name__ == "__main__":
+    run_gui()
