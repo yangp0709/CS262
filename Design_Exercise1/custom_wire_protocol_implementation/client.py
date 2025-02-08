@@ -149,6 +149,7 @@ def update_conversation_list():
         unread_indicator = f" 🔴({unread} unread)" if unread > 0 else ""
         display = f"{contact}{unread_indicator}"
         conversation_list.insert(tk.END, display)
+    return unread
 
 def open_chat():
     selection = conversation_list.curselection()
@@ -158,62 +159,37 @@ def open_chat():
     chat_window(contact)
 
 def chat_window(contact):
-    if contact in chat_windows:
-        if chat_windows[contact].winfo_exists():
-            chat_windows[contact].lift()
-            return
-        else:
-            del chat_windows[contact]
-    chat_win = tk.Toplevel(root)
-    chat_win.title(f"Chat with {contact}")
-    chat_windows[contact] = chat_win
-
-    # Mark incoming messages as read when opening chat.
-    if any(m["from"]==contact and m["status"]=="unread" for m in conversations.get(contact, [])):
-        send_request(6, f"{current_user}|{contact}")
-        for m in conversations.get(contact, []):
-            if m["from"]==contact and m["status"]=="unread":
-                m["status"] = "read"
-        update_conversation_list()
-
-    chat_text = scrolledtext.ScrolledText(chat_win, state=tk.DISABLED, height=15, width=50)
-    chat_text.pack()
-
+    # helper functions
     def refresh_chat_text():
         chat_text.configure(state=tk.NORMAL)
         chat_text.delete(1.0, tk.END)
         if contact in conversations:
-            for m in conversations[contact]: # TODO CAP ENTRANCE
+            for m in conversations[contact]:
                 if m.get("status") == "deleted":
                     continue
                 sender_disp = "You" if m["from"]==current_user else m["from"]
                 text = f"{sender_disp}: {m['message']}\n"
                 chat_text.insert(tk.END, text)
         chat_text.configure(state=tk.DISABLED)
-    refresh_chat_text()
-    chat_win.refresh_chat_text = refresh_chat_text
-
-    message_entry = tk.Entry(chat_win, width=40)
-    message_entry.insert(0, undelivered.get(contact, "")) # prints out the saved undelivered message
-    message_entry.pack(pady=5)
 
     def send_message():
-        message = message_entry.get().strip()
-        if not message:
-            return
-        sender, recipient = current_user, contact
-        response = send_request(4, f"{sender}|{recipient}|{message}")
-        if response and response.startswith("success"):
-            msg_obj = ast.literal_eval(response.split(':', 1)[1]) # msg_id, from, message, status
-            add_message(contact, msg_obj)
-            update_conversation_list()
-            update_chat_window(contact)
-            message_entry.delete(0, tk.END)
+        if can_send_message:
+            message = message_entry.get().strip()
+            if not message:
+                return
+            sender, recipient = current_user, contact
+            response = send_request(4, f"{sender}|{recipient}|{message}")
+            if response and response.startswith("success"):
+                msg_obj = ast.literal_eval(response.split(':', 1)[1]) # msg_id, from, message, status
+                add_message(contact, msg_obj)
+                update_conversation_list()
+                update_chat_window(contact)
+                message_entry.delete(0, tk.END)
 
+            else:
+                messagebox.showerror("Error", response if response else "No response from server.")
         else:
-            messagebox.showerror("Error", response if response else "No response from server.")
-    send_button = tk.Button(chat_win, text="Send", command=send_message)
-    send_button.pack(pady=5)
+            messagebox.showerror("Error", "Cannot send a new message until all unread messages are read")
 
     def on_message_double_click(event):
         index = chat_text.index(f"@{event.x},{event.y}")
@@ -234,24 +210,96 @@ def chat_window(contact):
                         update_conversation_list()
                     else:
                         messagebox.showerror("Error", response if response else "No response from server.")
-    chat_text.bind("<Double-Button-1>", on_message_double_click)
 
     def save_undelivered():
         """
             Saves undelivered message in the message entry so that when user closes the chat window and then reopens, the undelivered message is still present
         """
-        print("DEBUG", message_entry.get().strip())
         undelivered[contact] = message_entry.get().strip()
         return
     
+    def update_read_batch_num():
+        nonlocal read_batch_num, unread_counter
+        read_batch_num = int(read_batch_num_new.get())
+        unread_counter = 0
+        send_request(6, f"{current_user}|{contact}|{read_batch_num}")
+    
+    # Chat_window setup
+    if contact in chat_windows:
+        if chat_windows[contact].winfo_exists():
+            chat_windows[contact].lift()
+            return
+        else:
+            del chat_windows[contact]
+    chat_win = tk.Toplevel(root)
+    chat_win.title(f"Chat with {contact}")
+    chat_windows[contact] = chat_win
+    chat_win.refresh_chat_text = refresh_chat_text
     chat_win.protocol("WM_DELETE_WINDOW", lambda: (save_undelivered(), chat_win.destroy(), update_conversation_list()))
+
+    chat_text = scrolledtext.ScrolledText(chat_win, state=tk.DISABLED, height=15, width=50)
+    chat_text.pack()
+    chat_text.bind("<Double-Button-1>", on_message_double_click)
+
+    message_entry = tk.Entry(chat_win, width=40)
+    message_entry.insert(0, undelivered.get(contact, "")) # prints out the saved undelivered message
+    message_entry.pack(pady=5)
+
+    send_button = tk.Button(chat_win, text="Send", command=send_message)
+    send_button.pack(pady=5)
+
+    tk.Label(chat_win, text="Read the next")
+    # number of messages to read at once selected by option menu
+    DEFAULT_READ_BATCH_NUM = 5
+    read_batch_num = 0
+    read_batch_num_new = tk.StringVar()
+    read_batch_num_new.set(DEFAULT_READ_BATCH_NUM) # default
+    read_batch_num_dropdown = tk.OptionMenu(chat_win, read_batch_num_new, *range(1,31), command=lambda value: 
+    read_batch_num_button.config(text=f"Read the next {value} messages"))
+    read_batch_num_dropdown.pack(pady=10)
+    read_batch_num_button = tk.Button(chat_win, text=f"Read the next {DEFAULT_READ_BATCH_NUM} messages", command=update_read_batch_num)
+    read_batch_num_button.pack(pady=5)
+    
+    chat_text.configure(state=tk.NORMAL)
+    chat_text.delete(1.0, tk.END)
+    unread_counter = 0
+    can_send_message = False # cannot send a message until all unreads are read
+    for m_contact in conversations.get(contact, []):
+        # if deleted, don't display
+        if m_contact["status"] == "deleted":
+            continue
+        # if you sent the message or the message was read by the recipient, display the message
+        elif m_contact["from"] == current_user or m_contact["status"] == "read": 
+            # display message
+            sender_disp = "You" if m_contact["from"]==current_user else m_contact["from"]
+            text = f"{sender_disp}: {m_contact['message']}\n"
+            chat_text.insert(tk.END, text)
+        # if unread, wait for next batch of unread to read. If next bratch is released, mark them as read and display
+        else: # if unread
+            while unread_counter == read_batch_num:
+                # Update tkinter's event loop to listen for events
+                # because button that triggers update_read_batch_num is the only way 
+                # to reset unread_counter
+                chat_win.update()
+            if m_contact["from"]==contact and m_contact["status"]=="unread" and unread_counter < read_batch_num:
+                # mark as read
+                m_contact["status"] = "read"
+                print('READ STATUS', m_contact["status"])
+                unread_counter += 1
+                # display message
+                sender_disp = "You" if m_contact["from"]==current_user else m_contact["from"]
+                text = f"{sender_disp}: {m_contact['message']}\n"
+                chat_text.insert(tk.END, text)
+    can_send_message = True
+    update_conversation_list()
+    chat_text.configure(state=tk.DISABLED)
+
 
 def update_chat_window(contact):
     if contact in chat_windows and chat_windows[contact].winfo_exists():
         # Only mark as read messages from this specific contact.
-        unread_msgs = [m for m in conversations.get(contact, []) if m["from"] == contact and m["status"] == "unread"]
-        if unread_msgs:
-            send_request(6, f"{current_user}|{contact}")
+        if any(m["from"]==contact and m["status"]=="unread" for m in conversations.get(contact, [])):
+            send_request(6, f"{current_user}|{contact}|0")
             for m in conversations.get(contact, []):
                 if m["from"] == contact and m["status"] == "unread":
                     m["status"] = "read"

@@ -152,17 +152,20 @@ def handle_mark_read(msg_data):
       Handle a mark read request
 
       Params:
-        msg_data: data from client containing username and contact
+        msg_data: data from client containing username, contact, and read_batch_num
       Returns:
         response: string for status of marking read
     """
-    username, contact = msg_data.split('|')
+    username, contact, read_batch_num = msg_data.split('|')
+    read_batch_num = int(read_batch_num) # if 0, that means mark read for all unreads (no batching)
     if username in users:
         count = 0
         for msg in users[username]["messages"]:
-            if msg["from"] == contact and msg["status"] == "unread":
+            if msg["from"] == contact and msg["status"] == "unread" and (count < read_batch_num or read_batch_num == 0):
                 msg["status"] = "read"
                 count += 1
+            if read_batch_num != 0 and count == read_batch_num:
+                break
         response = f"success: Marked {count} messages as read."
     else:
         response = "error: User not found."
