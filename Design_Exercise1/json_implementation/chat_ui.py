@@ -52,39 +52,19 @@ def send_request(request):
 
 def load_all_usernames():
     """Load all usernames from the server into the global options list."""
-    global options
+    update_username_suggestions(None, username_combobox, username_var)
+    if current_user:
+        update_username_suggestions(None, recipient_combobox, recipient_var, exclude_self=True)
+
+def update_username_suggestions(event, combobox, var, exclude_self=False):
+    typed = var.get().lower() if var.get() else ""
     response = send_request({"type": "list_users", "prefix": "*"})
-    if response and response["status"] == "success":
-        options = response["users"]
-        username_combobox["values"] = options
-        try:
-            recipient_combobox["values"] = [u for u in options if u != current_user]
-        except Exception:
-            pass
-    else:
-        options = []
-
-def update_options(event):
-    """Update the combobox dropdown options based on user input."""
-    typed = username_var.get().lower()
-    if typed == "":
-        username_combobox["values"] = options
-    else:
-        filtered = [item for item in options if typed in item.lower()]
-        username_combobox["values"] = filtered
-
-def update_recipient_options(event):
-    """
-    Update the recipient dropdown options.
-    Exclude the current user from the list.
-    """
-    all_options = [u for u in options if u != current_user]
-    typed = recipient_var.get().lower()
-    if typed == "":
-        recipient_combobox["values"] = all_options
-    else:
-        filtered = [item for item in all_options if typed in item.lower()]
-        recipient_combobox["values"] = filtered
+    suggestions = response["users"] if response and response.get("status") == "success" else []
+    if exclude_self and current_user in suggestions:
+        suggestions.remove(current_user)
+    if typed:
+         suggestions = [s for s in suggestions if typed in s.lower()]
+    combobox["values"] = suggestions
 
 def login():
     """Handle the 'Login' button click."""
@@ -459,7 +439,8 @@ tk.Label(login_frame, text="Username:").pack()
 username_var = tk.StringVar()
 username_combobox = ttk.Combobox(login_frame, textvariable=username_var)
 username_combobox.pack()
-username_combobox.bind("<KeyRelease>", update_options)
+username_combobox.bind("<KeyRelease>", lambda e: update_username_suggestions(e, username_combobox, username_var))
+username_combobox.bind("<FocusIn>", lambda e: update_username_suggestions(e, username_combobox, username_var))
 tk.Label(login_frame, text="Password:").pack()
 password_entry = tk.Entry(login_frame, show="*")
 password_entry.pack()
@@ -474,8 +455,10 @@ tk.Label(chat_frame, text="Enter New Recipient:").pack()
 
 recipient_var = tk.StringVar()
 recipient_combobox = ttk.Combobox(chat_frame, textvariable=recipient_var, width=30)
+recipient_combobox.config(postcommand=lambda: update_username_suggestions(None, recipient_combobox, recipient_var, exclude_self=True))
 recipient_combobox.pack()
-recipient_combobox.bind("<KeyRelease>", update_recipient_options)
+recipient_combobox.bind("<KeyRelease>", lambda e: update_username_suggestions(e, recipient_combobox, recipient_var, exclude_self=True))
+recipient_combobox.bind("<FocusIn>", lambda e: update_username_suggestions(e, recipient_combobox, recipient_var, exclude_self=True))
 tk.Button(chat_frame, text="Start New Chat", command=start_new_conversation).pack(pady=5)
 
 conversation_list = tk.Listbox(chat_frame, height=10, width=40)
