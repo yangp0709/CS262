@@ -47,12 +47,15 @@ class ChatServer:
         self.host = host
         self.port = port
         self.store = store if store else UserStore()
+        self.active_users = set()
+        self.active_users_lock = threading.Lock()
         self.subscribers = {}
         self.subscribers_lock = threading.Lock()
         atexit.register(self.store.clear)
         self.handlers = {
             "register": self.handle_register,
             "login": self.handle_login,
+            "logout": self.handle_logout,
             "list_users": self.handle_list_users,
             "subscribe": self.handle_subscribe,
             "send": self.handle_send,
@@ -114,9 +117,19 @@ class ChatServer:
         password = self.hash_password(request["password"])
         user = self.store.users.get(username)
         if user and user["password"] == password and not user.get("deleted", False):
+            with self.active_users_lock:
+                if username in self.active_users:
+                    return {"status": "error", "message": "User already logged in."}, False
+                self.active_users.add(username)
             unread = sum(1 for m in user["messages"] if m["status"] == "unread")
             return {"status": "success", "message": f"Logged in. {unread} unread messages."}, False
         return {"status": "error", "message": "Invalid credentials or account deleted."}, False
+    
+    def handle_logout(self, request, conn):
+        username = request["username"]
+        with self.active_users_lock:
+            self.active_users.discard(username)
+        return {"status": "success", "message": "Logged out."}, False
 
     def handle_list_users(self, request, conn):
         """

@@ -125,10 +125,11 @@ def subscribe_thread():
             if msg.get("type") == "message":
                 message_data = msg["data"]
                 sender = message_data["from"]
-                if add_message(sender, message_data):
-                    update_conversation_list()
-                    if sender in chat_windows and chat_windows[sender].winfo_exists():
-                        update_chat_window(sender)
+            if add_message(sender, message_data):
+                root.after(0, update_conversation_list)
+                if sender in chat_windows and chat_windows[sender].winfo_exists():
+                    root.after(0, update_chat_window, sender)
+
         subscription_socket.close()
     except Exception as e:
         print("Subscription error:", e)
@@ -416,6 +417,8 @@ def logout():
     pack the login frame, and clear the new conversation entry field.
     """
     global current_user, subscription_socket
+    if current_user:
+        send_request({"type": "logout", "username": current_user})
     current_user = None
     if subscription_socket:
         try:
@@ -438,6 +441,7 @@ tk.Label(login_frame, text="Username:").pack()
 
 username_var = tk.StringVar()
 username_combobox = ttk.Combobox(login_frame, textvariable=username_var)
+username_combobox.config(postcommand=lambda: update_username_suggestions(None, username_combobox, username_var))
 username_combobox.pack()
 username_combobox.bind("<KeyRelease>", lambda e: update_username_suggestions(e, username_combobox, username_var))
 username_combobox.bind("<FocusIn>", lambda e: update_username_suggestions(e, username_combobox, username_var))
