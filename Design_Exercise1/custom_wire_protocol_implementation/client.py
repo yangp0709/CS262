@@ -36,10 +36,7 @@ def send_request(request_type, data):
         
         # Pack data using struct
         message = struct.pack("!I", request_type) + data.encode()
-        try:
-            client.send(message)
-        except Exception as e:
-            print(f"Error sending data to socket {client.fileno()}: {e}")
+        client.send(message)
         
         # Receive response
         response = client.recv(4096)
@@ -108,11 +105,7 @@ def subscribe_thread():
         request_type = 5
         data = current_user
         message = struct.pack("!I", request_type) + data.encode()
-        try:
-            subscription_socket.send(message)
-        except Exception as e:
-            print(f"Error sending data to socket {subscription_socket.fileno()}: {e}")
-
+        subscription_socket.send(message)
         while current_user:
             response = subscription_socket.recv(4096)
             response = response.decode()
