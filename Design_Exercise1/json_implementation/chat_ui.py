@@ -125,10 +125,10 @@ def subscribe_thread():
             if msg.get("type") == "message":
                 message_data = msg["data"]
                 sender = message_data["from"]
-            if add_message(sender, message_data):
-                root.after(0, update_conversation_list)
-                if sender in chat_windows and chat_windows[sender].winfo_exists():
-                    root.after(0, update_chat_window, sender)
+                if add_message(sender, message_data):
+                    update_conversation_list()
+                    if sender in chat_windows and chat_windows[sender].winfo_exists():
+                        update_chat_window(sender)
 
         subscription_socket.close()
     except Exception as e:
