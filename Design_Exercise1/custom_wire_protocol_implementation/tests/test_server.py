@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import unittest
 from unittest.mock import MagicMock, patch
 import threading
@@ -23,13 +26,27 @@ class TestServerHandlers(unittest.TestCase):
 
     def test_handle_login_success(self):
         server.users["testuser"] = {"password": server.hash_password("password123"), "messages": []}
+        server.active_users = set(["testuser1"])
+        server.active_users_lock = threading.Lock()
         response = server.handle_login("testuser|password123")
         self.assertIn("success: Logged in", response)
+        self.assertEqual(server.active_users, set(["testuser1", "testuser"]))
+
+    def test_handle_login_already_logged_in(self):
+        server.users["testuser"] = {"password": server.hash_password("password123"), "messages": []}
+        server.active_users = set(["testuser"])
+        server.active_users_lock = threading.Lock()
+        response = server.handle_login("testuser|password123")
+        self.assertEqual("error: User already logged in", response)
+        self.assertEqual(server.active_users, set(["testuser"]))
 
     def test_handle_login_invalid_password(self):
         server.users["testuser"] = {"password": server.hash_password("password123"), "messages": []}
+        server.active_users = set(["testuser1"])
+        server.active_users_lock = threading.Lock()
         response = server.handle_login("testuser|wrongpassword")
         self.assertEqual(response, "error: Invalid username or password")
+        self.assertEqual(server.active_users, set(["testuser1"]))
 
     def test_handle_list_users(self):
         server.users["user1"] = {"password": server.hash_password("pass1"), "messages": []}
@@ -354,5 +371,25 @@ class TestServerHandlers(unittest.TestCase):
         self.assertEqual(response, "error: User not found or already deleted.")
         self.assertTrue(server.users["testuser"]["deleted"])
 
+    def test_handle_logout_success(self):
+        """
+        Test handle_logout function when success
+        """
+        server.active_users = set(["testuser"])
+        server.active_users_lock = threading.Lock()
+        response = server.handle_logout("testuser")
+        self.assertEqual(response, "success: Logged out.")
+        self.assertEqual(server.active_users, set())
+
+    def test_handle_logout_error(self):
+        """
+        Test handle_logout function when error
+        """
+        server.active_users = set(["testuser1"])
+        server.active_users_lock = threading.Lock()
+        response = server.handle_logout("testuser")
+        self.assertEqual(response, "error: Failed to log out. Username does not exist in active users.")
+        self.assertEqual(server.active_users, set(["testuser1"]))
+        
 if __name__ == '__main__':
     unittest.main()

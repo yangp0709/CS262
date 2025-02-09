@@ -362,7 +362,8 @@ class TestSendRequest(unittest.TestCase):
     @patch('client.chat_frame')  # Mock the chat frame
     @patch('client.login_frame')  # Mock the login frame
     @patch('client.new_conversation_entry')  # Mock the new conversation entry
-    def test_logout_successful(self, mock_new_conversation_entry, mock_login_frame, mock_chat_frame):
+    @patch('client.send_request')
+    def test_logout_successful(self, mock_send_request, mock_new_conversation_entry, mock_login_frame, mock_chat_frame):
         """
         Test logout function where the logout is successful
         """
@@ -373,6 +374,8 @@ class TestSendRequest(unittest.TestCase):
         # Properly mock subscription_socket with a MagicMock that has a close() method
         mock_socket = MagicMock()
         client.subscription_socket = mock_socket  # Assign the mock socket
+
+        mock_send_request.return_value = "success: Logged out."
 
         client.undelivered = {}
 
@@ -403,9 +406,10 @@ class TestSendRequest(unittest.TestCase):
     @patch('client.chat_frame')  # Mock the chat frame
     @patch('client.login_frame')  # Mock the login frame
     @patch('client.new_conversation_entry')  # Mock the new conversation entry
-    def test_logout_error(self, mock_new_conversation_entry, mock_login_frame, mock_chat_frame):
+    @patch('client.send_request')
+    def test_logout_socket_error(self, mock_send_request, mock_new_conversation_entry, mock_login_frame, mock_chat_frame):
         """
-        Test logout function where the logout is successful
+        Test logout function where the logout errors out due to failure to close socket
         """
         
         # Set up initial conditions
@@ -414,6 +418,8 @@ class TestSendRequest(unittest.TestCase):
         # Properly mock subscription_socket with a MagicMock that has a close() method
         mock_socket = MagicMock()
         client.subscription_socket = mock_socket  # Assign the mock socket
+
+        mock_send_request.return_value = "success: Logged out."
 
         client.undelivered = {}
         mock_socket.close.side_effect = Exception("Failed to close socket")  # Simulate socket closure failure
@@ -442,7 +448,45 @@ class TestSendRequest(unittest.TestCase):
         # Verify that undelivered messages are cleared
         self.assertEqual(len(client.undelivered), 0)
 
+    @patch('client.send_request')
+    def test_logout_request_error1(self, mock_send_request):
+        """
+        Test logout function where the logout errors out due send_request error
+        """
+        
+        # Set up initial conditions
+        client.current_user = "test_user"  # Set a valid current user
 
+        # Properly mock subscription_socket with a MagicMock that has a close() method
+        mock_socket = MagicMock()
+        client.subscription_socket = mock_socket  # Assign the mock socket
+
+        mock_send_request.return_value = None
+
+        client.undelivered = {}
+
+        # Call the logout function
+        self.assertIsNone(client.logout(), msg=None)
+
+    @patch('client.send_request')
+    def test_logout_request_error2(self, mock_send_request):
+        """
+        Test logout function where the logout errors out due logout function error in the server
+        """
+        
+        # Set up initial conditions
+        client.current_user = "test_user"  # Set a valid current user
+
+        # Properly mock subscription_socket with a MagicMock that has a close() method
+        mock_socket = MagicMock()
+        client.subscription_socket = mock_socket  # Assign the mock socket
+
+        mock_send_request.return_value = "error: Failed to log out. Username does not exist in active users."
+
+        client.undelivered = {}
+
+        # Call the logout function
+        self.assertIsNone(client.logout(), msg=None)
 
 if __name__ == "__main__":
     unittest.main()

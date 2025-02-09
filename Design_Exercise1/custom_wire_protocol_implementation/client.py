@@ -108,6 +108,8 @@ def subscribe_thread():
         subscription_socket.send(message)
         while current_user:
             response = subscription_socket.recv(4096)
+            if not response:
+                break
             response = response.decode()
 
             if response and response.startswith("success"):
@@ -119,9 +121,11 @@ def subscribe_thread():
                         update_chat_window(sender)
             else:
                 messagebox.showerror("Error", response)
-        subscription_socket.close()
     except Exception as e:
         print("Subscription error:", e)
+    finally:
+        if subscription_socket is not None:
+            subscription_socket.close()
 
 def load_conversations():
     response = send_request(8, current_user)
@@ -343,20 +347,27 @@ def delete_account():
 
 def logout():
     global current_user, subscription_socket
-    current_user = None
-    if subscription_socket:
-        try:
-            subscription_socket.close()
-        except Exception as e:
-            print(f"[ERROR] Failed to close subscription socket: {e}")
-            # Log the failure, but don't block the UI update
-            print("Warning: Unable to disconnect from the server properly.")
-            pass
-        subscription_socket = None
-    chat_frame.pack_forget()
-    login_frame.pack()
-    new_conversation_entry.delete(0, tk.END)
-    undelivered.clear()
+    if current_user:
+        response = send_request(10, current_user)
+        if response is None: # send_request failed, stop logout
+            return 
+        if response.startswith("success"):
+            current_user = None
+            if subscription_socket:
+                try:
+                    subscription_socket.close()
+                except Exception as e:
+                    print(f"[ERROR] Failed to close subscription socket: {e}")
+                    # Log the failure, but don't block the UI update
+                    print("Warning: Unable to disconnect from the server properly.")
+                    pass
+                subscription_socket = None
+            chat_frame.pack_forget()
+            login_frame.pack()
+            new_conversation_entry.delete(0, tk.END)
+            undelivered.clear()
+        else:
+            messagebox.showerror("Error", response if response else "No response from server.")
 
 def run_gui():
     root.title("Chat Application")
@@ -367,6 +378,7 @@ def run_gui():
 
     username_options = ast.literal_eval(send_request(3, "empty"))
     username_entry["values"] = username_options
+    username_entry.config(postcommand=lambda: update_username_suggestions(None, username_entry, username_entry_var))
     username_entry.pack()
     # Bind the KeyRelease event to update suggestions when typing
     username_entry.bind("<KeyRelease>", lambda event: update_username_suggestions(event, username_entry, username_entry_var))
@@ -384,6 +396,7 @@ def run_gui():
     tk.Label(chat_frame, text="Enter New Recipient:").pack()
 
     new_conversation_entry["values"] = username_options
+    new_conversation_entry.config(postcommand=lambda: update_username_suggestions(None, new_conversation_entry, new_conversation_entry_var))
     new_conversation_entry.pack()
     # Bind the KeyRelease event to update suggestions when typing
     new_conversation_entry.bind("<KeyRelease>", lambda event: update_username_suggestions(event, new_conversation_entry, new_conversation_entry_var))

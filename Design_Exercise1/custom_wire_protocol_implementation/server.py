@@ -12,6 +12,8 @@ SERVER_PORT = 5001
 # User data storage
 users = {}
 # Subscriber tracking for real-time delivery
+active_users = set()
+active_users_lock = threading.Lock()
 subscribers = {}
 subscribers_lock = threading.Lock()
 
@@ -72,6 +74,12 @@ def handle_login(msg_data):
     username, password = msg_data.split('|')
     password = hash_password(password)
     if username in users and users[username]["password"] == password and not users[username].get("deleted", False):
+        with active_users_lock:
+            if username in active_users:
+                response = "error: User already logged in"
+                return response
+            else:
+                active_users.add(username)
         unread_messages = sum(1 for m in users[username]["messages"] if m["status"] == "unread")
         response = f"success: Logged in. Unread messages: {unread_messages}"
     else:
@@ -250,6 +258,19 @@ def handle_delete_account(msg_data):
         response = f"error: User not found or already deleted."
     return response
 
+def handle_logout(msg_data):
+    """
+        Handle log out account request
+    """
+    username = msg_data 
+    with active_users_lock:
+        try:
+            active_users.remove(username)
+            response = "success: Logged out."
+        except Exception:
+            response = "error: Failed to log out. Username does not exist in active users."
+    return response
+
 def handle_client(conn, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
     while True:
@@ -294,6 +315,10 @@ def handle_client(conn, addr):
                 
             elif msg_type == 9: # Delete account
                 response = handle_delete_account(msg_data)
+
+            elif msg_type == 10: # Logout
+                response = handle_logout(msg_data)
+
             else:
                 response = "Unknown request type"
             
