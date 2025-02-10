@@ -1,6 +1,5 @@
 import socket
 import tkinter as tk
-from tkinter import ttk
 from tkinter import messagebox, scrolledtext
 import threading
 import struct

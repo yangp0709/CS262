@@ -1,0 +1,74 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module client</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong>client</strong></big></big></font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/Enako/Documents/CS2620/git_repo_w_paul/CS262/Design_Exercise1/custom_wire_protocol_implementation/client.py">/Users/Enako/Documents/CS2620/git_repo_w_paul/CS262/Design_Exercise1/custom_wire_protocol_implementation/client.py</a></font></td></tr></table>
+    <p></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="ast.html">ast</a><br>
+<a href="tkinter.messagebox.html">tkinter.messagebox</a><br>
+</td><td width="25%" valign=top><a href="tkinter.scrolledtext.html">tkinter.scrolledtext</a><br>
+<a href="socket.html">socket</a><br>
+</td><td width="25%" valign=top><a href="struct.html">struct</a><br>
+<a href="threading.html">threading</a><br>
+</td><td width="25%" valign=top><a href="tkinter.html">tkinter</a><br>
+</td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#eeaa77">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Functions</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#eeaa77"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl><dt><a name="-add_message"><strong>add_message</strong></a>(contact, msg)</dt><dd><tt>#&nbsp;Helper:&nbsp;Add&nbsp;a&nbsp;message&nbsp;if&nbsp;its&nbsp;ID&nbsp;isn’t&nbsp;already&nbsp;present,&nbsp;or&nbsp;update&nbsp;it&nbsp;if&nbsp;it&nbsp;exists.</tt></dd></dl>
+ <dl><dt><a name="-chat_window"><strong>chat_window</strong></a>(contact)</dt></dl>
+ <dl><dt><a name="-check_new_messages"><strong>check_new_messages</strong></a>()</dt></dl>
+ <dl><dt><a name="-delete_account"><strong>delete_account</strong></a>()</dt></dl>
+ <dl><dt><a name="-load_conversations"><strong>load_conversations</strong></a>()</dt></dl>
+ <dl><dt><a name="-login"><strong>login</strong></a>()</dt></dl>
+ <dl><dt><a name="-logout"><strong>logout</strong></a>()</dt></dl>
+ <dl><dt><a name="-open_chat"><strong>open_chat</strong></a>()</dt></dl>
+ <dl><dt><a name="-register"><strong>register</strong></a>()</dt></dl>
+ <dl><dt><a name="-run_gui"><strong>run_gui</strong></a>()</dt></dl>
+ <dl><dt><a name="-send_request"><strong>send_request</strong></a>(request_type, data)</dt><dd><tt>Send&nbsp;a&nbsp;request&nbsp;to&nbsp;the&nbsp;server&nbsp;using&nbsp;a&nbsp;custom&nbsp;binary&nbsp;protocol.</tt></dd></dl>
+ <dl><dt><a name="-start_new_conversation"><strong>start_new_conversation</strong></a>()</dt></dl>
+ <dl><dt><a name="-subscribe_thread"><strong>subscribe_thread</strong></a>()</dt></dl>
+ <dl><dt><a name="-update_chat_window"><strong>update_chat_window</strong></a>(contact)</dt></dl>
+ <dl><dt><a name="-update_conversation_list"><strong>update_conversation_list</strong></a>()</dt><dd><tt>#&nbsp;Update&nbsp;conversation&nbsp;list&nbsp;by&nbsp;skipping&nbsp;deleted&nbsp;messages&nbsp;entirely.</tt></dd></dl>
+ <dl><dt><a name="-update_username_suggestions"><strong>update_username_suggestions</strong></a>(event, entry, entry_var)</dt><dd><tt>Update&nbsp;the&nbsp;dropdown&nbsp;options&nbsp;for&nbsp;username&nbsp;based&nbsp;on&nbsp;user&nbsp;input.</tt></dd></dl>
+</td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#55aa55">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><strong>SERVER_HOST</strong> = 'localhost'<br>
+<strong>SERVER_PORT</strong> = 5001<br>
+<strong>chat_frame</strong> = &lt;tkinter.Frame object .!frame2&gt;<br>
+<strong>chat_label</strong> = &lt;tkinter.Label object .!frame2.!label&gt;<br>
+<strong>chat_windows</strong> = {}<br>
+<strong>conversation_list</strong> = &lt;tkinter.Listbox object .!frame2.!listbox&gt;<br>
+<strong>conversations</strong> = {}<br>
+<strong>current_user</strong> = None<br>
+<strong>login_frame</strong> = &lt;tkinter.Frame object .!frame&gt;<br>
+<strong>new_conversation_entry</strong> = &lt;tkinter.ttk.Combobox object .!frame2.!combobox&gt;<br>
+<strong>new_conversation_entry_var</strong> = &lt;tkinter.StringVar object&gt;<br>
+<strong>password_entry</strong> = &lt;tkinter.Entry object .!frame.!entry&gt;<br>
+<strong>root</strong> = &lt;tkinter.Tk object .&gt;<br>
+<strong>subscription_socket</strong> = None<br>
+<strong>undelivered</strong> = {}<br>
+<strong>username_entry</strong> = &lt;tkinter.ttk.Combobox object .!frame.!combobox&gt;<br>
+<strong>username_entry_var</strong> = &lt;tkinter.StringVar object&gt;</td></tr></table>
+</body></html>

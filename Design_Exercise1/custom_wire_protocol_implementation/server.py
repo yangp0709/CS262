@@ -20,6 +20,11 @@ subscribers_lock = threading.Lock()
 def handle_exit():
     """
       Clear stored users, messages, and subscribers
+
+      Params:
+        None
+      Returns:
+        None
     """
     print("[INFO] Shutting down server gracefully...")
     users.clear()
@@ -260,7 +265,12 @@ def handle_delete_account(msg_data):
 
 def handle_logout(msg_data):
     """
-        Handle log out account request
+      Handle log out account request
+
+      Params:
+        msg_data: data from client containing username
+      Returns:
+        response: string fro status of logging out
     """
     username = msg_data 
     with active_users_lock:
@@ -272,6 +282,15 @@ def handle_logout(msg_data):
     return response
 
 def handle_client(conn, addr):
+    """
+      Handle communication with connected client
+
+      Params:
+        conn: The socket object representing the client connection.
+        addr: A tuple containing the client's IP address and port number.
+      Returns:
+        None
+    """
     print(f"[NEW CONNECTION] {addr} connected.")
     while True:
         try:
@@ -334,6 +353,14 @@ def handle_client(conn, addr):
     print(f"[DISCONNECTED] {addr} disconnected.")
 
 def start_server():
+    """
+      Start server
+      Params:
+        None
+      Returns:
+        None
+    """
+
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((HOST, SERVER_PORT))
     server.listen(5)

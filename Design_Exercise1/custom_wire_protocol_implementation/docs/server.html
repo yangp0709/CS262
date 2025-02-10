@@ -1,0 +1,134 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module server</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong>server</strong></big></big></font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/Enako/Documents/CS2620/git_repo_w_paul/CS262/Design_Exercise1/custom_wire_protocol_implementation/server.py">/Users/Enako/Documents/CS2620/git_repo_w_paul/CS262/Design_Exercise1/custom_wire_protocol_implementation/server.py</a></font></td></tr></table>
+    <p></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="atexit.html">atexit</a><br>
+<a href="hashlib.html">hashlib</a><br>
+</td><td width="25%" valign=top><a href="socket.html">socket</a><br>
+<a href="struct.html">struct</a><br>
+</td><td width="25%" valign=top><a href="threading.html">threading</a><br>
+<a href="uuid.html">uuid</a><br>
+</td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#eeaa77">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Functions</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#eeaa77"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl><dt><a name="-handle_client"><strong>handle_client</strong></a>(conn, addr)</dt><dd><tt>Handle&nbsp;communication&nbsp;with&nbsp;connected&nbsp;client<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;conn:&nbsp;The&nbsp;socket&nbsp;object&nbsp;representing&nbsp;the&nbsp;client&nbsp;connection.<br>
+&nbsp;&nbsp;addr:&nbsp;A&nbsp;tuple&nbsp;containing&nbsp;the&nbsp;client's&nbsp;IP&nbsp;address&nbsp;and&nbsp;port&nbsp;number.<br>
+Returns:<br>
+&nbsp;&nbsp;None</tt></dd></dl>
+ <dl><dt><a name="-handle_delete_account"><strong>handle_delete_account</strong></a>(msg_data)</dt><dd><tt>Handle&nbsp;delete&nbsp;account&nbsp;request<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;msg_data:&nbsp;data&nbsp;from&nbsp;client&nbsp;containing&nbsp;username<br>
+Returns:<br>
+&nbsp;&nbsp;response:&nbsp;string&nbsp;for&nbsp;status&nbsp;of&nbsp;deleting&nbsp;account</tt></dd></dl>
+ <dl><dt><a name="-handle_delete_unread_message"><strong>handle_delete_unread_message</strong></a>(msg_data)</dt><dd><tt>Handle&nbsp;a&nbsp;delete&nbsp;unread&nbsp;message&nbsp;request<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;msg_data:&nbsp;data&nbsp;from&nbsp;client&nbsp;containing&nbsp;sender,&nbsp;recipient,&nbsp;msg_id<br>
+Returns:<br>
+&nbsp;&nbsp;response:&nbsp;string&nbsp;for&nbsp;status&nbsp;of&nbsp;deleting&nbsp;an&nbsp;unread&nbsp;message</tt></dd></dl>
+ <dl><dt><a name="-handle_exit"><strong>handle_exit</strong></a>()</dt><dd><tt>Clear&nbsp;stored&nbsp;users,&nbsp;messages,&nbsp;and&nbsp;subscribers<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;None<br>
+Returns:<br>
+&nbsp;&nbsp;None</tt></dd></dl>
+ <dl><dt><a name="-handle_list_users"><strong>handle_list_users</strong></a>()</dt><dd><tt>Returns&nbsp;a&nbsp;list&nbsp;of&nbsp;active&nbsp;users<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;None<br>
+Returns:<br>
+&nbsp;&nbsp;response:&nbsp;string&nbsp;of&nbsp;list&nbsp;of&nbsp;active&nbsp;users</tt></dd></dl>
+ <dl><dt><a name="-handle_login"><strong>handle_login</strong></a>(msg_data)</dt><dd><tt>Handle&nbsp;a&nbsp;login&nbsp;request<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;msg_data:&nbsp;data&nbsp;from&nbsp;client&nbsp;containing&nbsp;username&nbsp;and&nbsp;password&nbsp;separated&nbsp;by&nbsp;'|'.<br>
+Returns:<br>
+&nbsp;&nbsp;response:&nbsp;string&nbsp;for&nbsp;status&nbsp;of&nbsp;login</tt></dd></dl>
+ <dl><dt><a name="-handle_logout"><strong>handle_logout</strong></a>(msg_data)</dt><dd><tt>Handle&nbsp;log&nbsp;out&nbsp;account&nbsp;request<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;msg_data:&nbsp;data&nbsp;from&nbsp;client&nbsp;containing&nbsp;username<br>
+Returns:<br>
+&nbsp;&nbsp;response:&nbsp;string&nbsp;fro&nbsp;status&nbsp;of&nbsp;logging&nbsp;out</tt></dd></dl>
+ <dl><dt><a name="-handle_mark_read"><strong>handle_mark_read</strong></a>(msg_data)</dt><dd><tt>Handle&nbsp;a&nbsp;mark&nbsp;read&nbsp;request<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;msg_data:&nbsp;data&nbsp;from&nbsp;client&nbsp;containing&nbsp;username,&nbsp;contact,&nbsp;and&nbsp;read_batch_num<br>
+Returns:<br>
+&nbsp;&nbsp;response:&nbsp;string&nbsp;for&nbsp;status&nbsp;of&nbsp;marking&nbsp;read</tt></dd></dl>
+ <dl><dt><a name="-handle_receive_messages"><strong>handle_receive_messages</strong></a>(msg_data)</dt><dd><tt>Handle&nbsp;receive&nbsp;messages&nbsp;request<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;msg_data:&nbsp;data&nbsp;from&nbsp;client&nbsp;containing&nbsp;username<br>
+Returns:<br>
+&nbsp;&nbsp;response:&nbsp;string&nbsp;for&nbsp;status&nbsp;of&nbsp;receiving&nbsp;messages.&nbsp;If&nbsp;success,&nbsp;it&nbsp;also&nbsp;contains&nbsp;the&nbsp;list&nbsp;of&nbsp;messages</tt></dd></dl>
+ <dl><dt><a name="-handle_register"><strong>handle_register</strong></a>(msg_data)</dt><dd><tt>Handle&nbsp;a&nbsp;registration&nbsp;request<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;msg_data:&nbsp;data&nbsp;from&nbsp;client&nbsp;containig&nbsp;username&nbsp;and&nbsp;password&nbsp;separated&nbsp;by&nbsp;'|'.<br>
+Returns:<br>
+&nbsp;&nbsp;response:&nbsp;string&nbsp;for&nbsp;status&nbsp;of&nbsp;registration</tt></dd></dl>
+ <dl><dt><a name="-handle_send"><strong>handle_send</strong></a>(msg_data)</dt><dd><tt>Handle&nbsp;sending&nbsp;a&nbsp;message<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;msg_data:&nbsp;data&nbsp;from&nbsp;client&nbsp;containing&nbsp;sender,&nbsp;recipient,&nbsp;and&nbsp;message&nbsp;separated&nbsp;by&nbsp;'|'<br>
+Returns:<br>
+&nbsp;&nbsp;response:&nbsp;string&nbsp;for&nbsp;status&nbsp;of&nbsp;sending&nbsp;a&nbsp;message</tt></dd></dl>
+ <dl><dt><a name="-handle_subscribe"><strong>handle_subscribe</strong></a>(conn, addr, msg_data)</dt><dd><tt>Handles&nbsp;a&nbsp;user's&nbsp;subscription&nbsp;request.<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;conn:&nbsp;Client&nbsp;socket<br>
+&nbsp;&nbsp;addr:&nbsp;Address&nbsp;of&nbsp;client<br>
+&nbsp;&nbsp;msg_data:&nbsp;data&nbsp;from&nbsp;client&nbsp;containing&nbsp;the&nbsp;username&nbsp;of&nbsp;the&nbsp;subscribing&nbsp;client.<br>
+&nbsp;<br>
+Returns:<br>
+&nbsp;&nbsp;None</tt></dd></dl>
+ <dl><dt><a name="-hash_password"><strong>hash_password</strong></a>(password)</dt><dd><tt>Hash&nbsp;the&nbsp;given&nbsp;password.<br>
+&nbsp;<br>
+Params:<br>
+&nbsp;&nbsp;password:&nbsp;The&nbsp;password&nbsp;to&nbsp;hash.<br>
+Returns:<br>
+&nbsp;&nbsp;A&nbsp;SHA-256&nbsp;hash&nbsp;of&nbsp;the&nbsp;password.</tt></dd></dl>
+ <dl><dt><a name="-start_server"><strong>start_server</strong></a>()</dt><dd><tt>Start&nbsp;server<br>
+Params:<br>
+&nbsp;&nbsp;None<br>
+Returns:<br>
+&nbsp;&nbsp;None</tt></dd></dl>
+</td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#55aa55">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><strong>HOST</strong> = '0.0.0.0'<br>
+<strong>SERVER_PORT</strong> = 5001<br>
+<strong>active_users</strong> = set()<br>
+<strong>active_users_lock</strong> = &lt;unlocked _thread.lock object&gt;<br>
+<strong>subscribers</strong> = {}<br>
+<strong>subscribers_lock</strong> = &lt;unlocked _thread.lock object&gt;<br>
+<strong>users</strong> = {}</td></tr></table>
+</body></html>
