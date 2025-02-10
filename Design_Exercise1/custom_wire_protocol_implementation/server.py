@@ -8,6 +8,7 @@ import atexit
 
 HOST = "0.0.0.0"
 SERVER_PORT = 5001
+VERSION = "1.0.0"
 
 # User data storage
 users = {}
@@ -292,63 +293,81 @@ def handle_client(conn, addr):
         None
     """
     print(f"[NEW CONNECTION] {addr} connected.")
-    while True:
-        try:
-            request_type_data = conn.recv(4)
-            if not request_type_data:
-                return
-            
+    try:
+        # Expect the client to send its version number first
+        client_version_data = conn.recv(32)
+        if not client_version_data:
+            return 
+        client_version = client_version_data.decode("utf-8").strip()
+        print('client_version', client_version)
+        if client_version != VERSION:
+            error_msg = f"error: Version mismatch. Server: {VERSION}, Client: {client_version}"
+            conn.send(error_msg.encode())
+            conn.close()
+            print(f"[DISCONNECTED] {addr} due to version mismatch")
+            return 
+        conn.send("success: Version matched".encode())
+
+        while True:
             try:
-                msg_type = struct.unpack("!I", request_type_data)[0]
-            except struct.error as e:
-                # send error message to the client
-                conn.send("error: Invalid message format".encode())
-                continue
-            print('MSG_TYPE', msg_type)
-            msg_data = conn.recv(4096).decode()
-
-            if msg_type == 1:  # Register
-                response = handle_register(msg_data)
+                request_type_data = conn.recv(4)
+                if not request_type_data:
+                    return
                 
-            elif msg_type == 2:  # Login
-                response = handle_login(msg_data)
-            
-            elif msg_type == 3:  # List Users
-                response = handle_list_users()
-            
-            elif msg_type == 4:  # Send Message
-                response = handle_send(msg_data)
-            
-            elif msg_type == 5:  # Subscribe
-                handle_subscribe(conn, addr, msg_data)
-                break # Exit from handling subscription
-            
-            elif msg_type == 6:  # Mark Read
-                response = handle_mark_read(msg_data)
-            
-            elif msg_type == 7:  # Delete Unread Message
-                response = handle_delete_unread_message(msg_data)
-
-            elif msg_type == 8:  # Receive Messages
-                response = handle_receive_messages(msg_data)
-                
-            elif msg_type == 9: # Delete account
-                response = handle_delete_account(msg_data)
-
-            elif msg_type == 10: # Logout
-                response = handle_logout(msg_data)
-
-            else:
-                response = "Unknown request type"
-            
-            if msg_type != 5: # not subscribe
                 try:
-                    conn.send(response.encode())
-                except Exception as e:
-                    print(f"[ERROR] Error sending data to {addr}: {e}")
-        except Exception as e:
-            print(f"[ERROR] {e} during client {addr} communication.")
-            break
+                    msg_type = struct.unpack("!I", request_type_data)[0]
+                except struct.error as e:
+                    # send error message to the client
+                    conn.send("error: Invalid message format".encode())
+                    continue
+                print('MSG_TYPE', msg_type)
+                msg_data = conn.recv(4096).decode()
+
+                if msg_type == 1:  # Register
+                    response = handle_register(msg_data)
+                    
+                elif msg_type == 2:  # Login
+                    response = handle_login(msg_data)
+                
+                elif msg_type == 3:  # List Users
+                    response = handle_list_users()
+                
+                elif msg_type == 4:  # Send Message
+                    response = handle_send(msg_data)
+                
+                elif msg_type == 5:  # Subscribe
+                    handle_subscribe(conn, addr, msg_data)
+                    break # Exit from handling subscription
+                
+                elif msg_type == 6:  # Mark Read
+                    response = handle_mark_read(msg_data)
+                
+                elif msg_type == 7:  # Delete Unread Message
+                    response = handle_delete_unread_message(msg_data)
+
+                elif msg_type == 8:  # Receive Messages
+                    response = handle_receive_messages(msg_data)
+                    
+                elif msg_type == 9: # Delete account
+                    response = handle_delete_account(msg_data)
+
+                elif msg_type == 10: # Logout
+                    response = handle_logout(msg_data)
+
+                else:
+                    response = "Unknown request type"
+                
+                if msg_type != 5: # not subscribe
+                    try:
+                        conn.send(response.encode())
+                    except Exception as e:
+                        print(f"[ERROR] Error sending data to {addr}: {e}")
+            except Exception as e:
+                print(f"[ERROR] {e} during client {addr} communication.")
+                break
+
+    except Exception as e:
+        print(f"[ERROR] {e} during initial connection handling")
     conn.close()
     print(f"[DISCONNECTED] {addr} disconnected.")
 

@@ -8,6 +8,7 @@ from chat_ui_objects import root, login_frame, username_entry_var, username_entr
 
 SERVER_HOST = "localhost"
 SERVER_PORT = 5001
+CLIENT_VERSION = "1.0.0"
 
 current_user = None
 # conversations: key=contact, value=list of message dicts {id, from, message, status}
@@ -27,20 +28,35 @@ def add_message(contact, msg):
     conversations[contact].append(msg)
     return True
 
+def check_version_number():
+    conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    conn.connect((SERVER_HOST, SERVER_PORT))
+
+    # Send version number first
+    conn.send(CLIENT_VERSION.encode().ljust(32))
+    # Receive the server's response on verison number match
+    response = conn.recv(1023).decode()
+    if response.startswith("error:"):
+        print(f"Error: {response}")
+        conn.close() 
+        return None # close client socket and exit due to version mismatch 
+    print(f"{response}") # success response for version match.
+    return conn
+
+
 def send_request(request_type, data):
     """Send a request to the server using a custom binary protocol."""
     try:
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client.connect((SERVER_HOST, SERVER_PORT))
-        
-        # Pack data using struct
-        message = struct.pack("!I", request_type) + data.encode()
-        client.send(message)
-        
-        # Receive response
-        response = client.recv(4096)
-        client.close()
-        return response.decode()
+        client = check_version_number()
+        if client is not None:
+            # Since version matched, continue to pack data using struct
+            message = struct.pack("!I", request_type) + data.encode()
+            client.send(message)
+            
+            # Receive response
+            response = client.recv(4096)
+            client.close()
+            return response.decode()
     except Exception as e:
         messagebox.showerror("Error", f"Connection failed: {e}")
         return None
@@ -99,27 +115,27 @@ def register():
 def subscribe_thread():
     global current_user, subscription_socket
     try:
-        subscription_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        subscription_socket.connect((SERVER_HOST, SERVER_PORT))
-        request_type = 5
-        data = current_user
-        message = struct.pack("!I", request_type) + data.encode()
-        subscription_socket.send(message)
-        while current_user:
-            response = subscription_socket.recv(4096)
-            if not response:
-                break
-            response = response.decode()
+        subscription_socket = check_version_number()
+        if subscription_socket is not None:
+            request_type = 5
+            data = current_user
+            message = struct.pack("!I", request_type) + data.encode()
+            subscription_socket.send(message)
+            while current_user:
+                response = subscription_socket.recv(4096)
+                if not response:
+                    break
+                response = response.decode()
 
-            if response and response.startswith("success"):
-                message_data = ast.literal_eval(response.split(':', 1)[1])
-                sender = message_data["from"]
-                if add_message(sender, message_data):
-                    update_conversation_list()
-                    if sender in chat_windows and chat_windows[sender].winfo_exists():
-                        update_chat_window(sender)
-            else:
-                messagebox.showerror("Error", response)
+                if response and response.startswith("success"):
+                    message_data = ast.literal_eval(response.split(':', 1)[1])
+                    sender = message_data["from"]
+                    if add_message(sender, message_data):
+                        update_conversation_list()
+                        if sender in chat_windows and chat_windows[sender].winfo_exists():
+                            update_chat_window(sender)
+                else:
+                    messagebox.showerror("Error", response)
     except Exception as e:
         print("Subscription error:", e)
     finally:
