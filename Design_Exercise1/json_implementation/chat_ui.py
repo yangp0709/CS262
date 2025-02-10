@@ -134,6 +134,11 @@ def subscribe_thread():
     except Exception as e:
         print("Subscription error:", e)
 
+    finally: 
+        if subscription_socket is not None:
+            subscription_socket.close()
+
+
 def load_conversations():
     """
     Load the conversations for the current user.
@@ -160,6 +165,7 @@ def update_conversation_list():
     :return: None
     """
     conversation_list.delete(0, tk.END)
+    
     for contact, msgs in conversations.items():
         visible = [m for m in msgs if m.get("status") != "deleted"]
         unread = sum(1 for m in visible if m["status"] == "unread" and m["from"] == contact)
@@ -197,38 +203,70 @@ def chat_window(contact):
     chat_win.title(f"Chat with {contact}")
     chat_windows[contact] = chat_win
 
-    # Mark unread messages as read
-    if any(m["from"] == contact and m["status"] == "unread" for m in conversations.get(contact, [])):
-        send_request({"type": "mark_read", "username": current_user, "contact": contact})
-        for m in conversations.get(contact, []):
-            if m["from"] == contact and m["status"] == "unread":
-                m["status"] = "read"
-        update_conversation_list()
-
     chat_text = scrolledtext.ScrolledText(chat_win, state=tk.DISABLED, height=15, width=50)
     chat_text.pack()
+    message_entry = tk.Entry(chat_win, width=40)
+    message_entry.insert(0, unsent_texts.get(contact, ""))
+    message_entry.pack(pady=5)
+
+    # Local variables for batch-read logic
+    DEFAULT_READ_BATCH_NUM = 5
+    read_batch_num = 0
+    unread_counter = 0
+    can_send_message = False
+    read_batch_num_new = tk.StringVar()
+    read_batch_num_new.set(DEFAULT_READ_BATCH_NUM)
+
+    def update_read_batch_num():
+        """
+        Updates the read batch number, which is the number of messages that are 
+        to be marked as read when the user clicks the "Mark as read" button.
+        """
+        nonlocal read_batch_num, unread_counter
+        read_batch_num = int(read_batch_num_new.get())  # Get new batch size
+        unread_counter = 0  # Reset unread counter
+        send_request({"type": "mark_read", "username": current_user, "contact": contact, "read_batch_num": read_batch_num})
+        refresh_chat_text()  # Process batch reading correctly
+
 
     def refresh_chat_text():
         """
         Refreshes the chat text with the messages from the contact.
         """
+        nonlocal unread_counter, can_send_message
         chat_text.configure(state=tk.NORMAL)
         chat_text.delete(1.0, tk.END)
-        if contact in conversations:
-            for m in conversations[contact]:
-                if m.get("status") == "deleted":
-                    continue
+
+        unread_counter = 0  # Reset unread count
+        total_unread = sum(1 for m in conversations.get(contact, []) if m["from"] == contact and m["status"] == "unread")
+        batch_processed = 0  # Tracks the number of unread messages processed in this batch
+
+        for m in conversations.get(contact, []):
+            if m.get("status") == "deleted":
+                continue
+            elif m["from"] == current_user or m["status"] == "read":
                 sender_disp = "You" if m["from"] == current_user else m["from"]
                 text = f"{sender_disp}: {m['message']}\n"
                 chat_text.insert(tk.END, text)
-        chat_text.configure(state=tk.DISABLED)
-    refresh_chat_text()
-    chat_win.refresh_chat_text = refresh_chat_text
+            else:
+                # Stop reading messages when batch limit is reached
+                if batch_processed == read_batch_num:
+                    break
 
-    # Create the message entry and prefill with any saved unsent text.
-    message_entry = tk.Entry(chat_win, width=40)
-    message_entry.insert(0, unsent_texts.get(contact, ""))
-    message_entry.pack(pady=5)
+                # Mark messages as read within the batch limit
+                m["status"] = "read"
+                batch_processed += 1
+                total_unread -= 1  # Correctly decrement total unread count
+
+                sender_disp = "You" if m["from"] == current_user else m["from"]
+                text = f"{sender_disp}: {m['message']}\n"
+                chat_text.insert(tk.END, text)
+
+        # Only allow sending messages if all unread messages are processed
+        can_send_message = total_unread == 0  
+        update_conversation_list()
+        chat_text.configure(state=tk.DISABLED)
+
 
     def send_message():
         """
@@ -241,22 +279,43 @@ def chat_window(contact):
 
         :return: None
         """
-        message = message_entry.get().strip()
-        if not message:
-            return
-        response = send_request({"type": "send", "sender": current_user, "recipient": contact, "message": message})
-        if response and response["status"] == "success":
-            msg_id = response.get("message_id", "")
-            msg_obj = {"id": msg_id, "from": current_user, "message": message, "status": "unread"}
-            add_message(contact, msg_obj)
-            update_conversation_list()
-            update_chat_window(contact)
-            message_entry.delete(0, tk.END)
-            unsent_texts[contact] = ""
+        if can_send_message:
+            message = message_entry.get().strip()
+            if not message:
+                return
+            
+            response = send_request({"type": "send", "sender": current_user, "recipient": contact, "message": message})
+            if response and response["status"] == "success":
+                msg_id = response.get("message_id", "")
+                msg_obj = {"id": msg_id, "from": current_user, "message": message, "status": "unread"}
+                add_message(contact, msg_obj)
+                update_conversation_list()
+                update_chat_window(contact)
+                message_entry.delete(0, tk.END)
+            else:
+                messagebox.showerror("Error", response["message"] if response else "No response from server.")
         else:
-            messagebox.showerror("Error", response["message"] if response else "No response from server.")
+            messagebox.showerror("Error", "Cannot send a new message until all unread messages are read.")
+            
     send_button = tk.Button(chat_win, text="Send", command=send_message)
     send_button.pack(pady=5)
+
+    read_batch_num_new = tk.StringVar()
+    read_batch_num_new.set(DEFAULT_READ_BATCH_NUM)  # Default batch size
+    read_batch_num_dropdown = tk.OptionMenu(
+        chat_win, read_batch_num_new, *range(1, 31),
+        command=lambda value: read_batch_num_button.config(text=f"Read the next {value} messages")
+    )
+    read_batch_num_dropdown.pack(pady=10)
+
+    # Button to trigger batch reading
+    read_batch_num_button = tk.Button(
+        chat_win, text="Read the next 5 messages", command=update_read_batch_num
+    )
+    read_batch_num_button.pack(pady=5)
+
+    refresh_chat_text()
+    chat_win.refresh_chat_text = refresh_chat_text
 
     def on_message_double_click(event):
         """
@@ -303,8 +362,8 @@ def chat_window(contact):
         unsent_texts[contact] = message_entry.get().strip()
         chat_win.destroy()
         update_conversation_list()
-
     chat_win.protocol("WM_DELETE_WINDOW", on_close_chat_window)
+
 
 def update_chat_window(contact):
     """

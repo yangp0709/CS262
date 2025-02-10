@@ -232,18 +232,30 @@ class ChatServer:
         :param conn: The connection to send the response on.
         :return: A tuple containing the response and a boolean indicating whether the client should stop.
         """
-        
+        DEFAULT_READ_BATCH_NUM = 5
         username = request["username"]
         contact = request["contact"]
+        read_batch_num = request.get("read_batch_num", DEFAULT_READ_BATCH_NUM)
+
         if username not in self.store.users:
             return {"status": "error", "message": "User not found."}, False
-        count = 0
-        for msg in self.store.users[username]["messages"]:
-            if msg["from"] == contact and msg["status"] == "unread":
-                msg["status"] = "read"
-                count += 1
+
+        # Get all unread messages from this contact
+        unread_messages = [
+            msg for msg in self.store.users[username]["messages"]
+            if msg["from"] == contact and msg["status"] == "unread"
+        ]
+
+        if not unread_messages:
+            return {"status": "error", "message": "No unread messages."}, False
+
+        # Mark only the requested batch of messages as read
+        for msg in unread_messages[:read_batch_num]:
+            msg["status"] = "read"
+
         self.store.save()
-        return {"status": "success", "message": f"Marked {count} messages as read."}, False
+        return {"status": "success", "message": f"{len(unread_messages[:read_batch_num])} messages marked as read."}, False
+
 
     def handle_delete_account(self, request, conn):
         """
