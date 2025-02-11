@@ -5,9 +5,25 @@ import threading
 import struct
 import ast
 from chat_ui_objects import root, login_frame, username_entry_var, username_entry, password_entry, chat_frame, chat_label, new_conversation_entry_var, new_conversation_entry, conversation_list
+import sys
 
-SERVER_HOST = "localhost"
-SERVER_PORT = 5001
+if sys.stdin.isatty():
+    while True:
+        SERVER_HOST = input("Enter server host: ").strip()
+        if SERVER_HOST:
+            break  # Ensure the user enters a non-empty host
+
+    while True:
+        try:
+            SERVER_PORT = int(input("Enter server port: ").strip())
+            break  # Ensure the user enters a valid integer port
+        except ValueError:
+            print("Invalid input. Please enter a valid port number.")
+
+else:
+    SERVER_HOST = "localhost"
+    SERVER_PORT = 5001
+
 CLIENT_VERSION = "1.0.0"
 
 current_user = None
@@ -32,7 +48,11 @@ def check_version_number():
     try: 
         conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         conn.connect((SERVER_HOST, SERVER_PORT))
-
+        print(f"Successfully connected to server at {SERVER_HOST}:{SERVER_PORT}")
+    except Exception as e:
+        print(f"Error: Could not connect to {SERVER_HOST}:{SERVER_PORT}. Please ensure the server is running and reachable.")
+        return None
+    try:
         # Send version number first
         conn.send(CLIENT_VERSION.encode().ljust(32))
         # Receive the server's response on verison number match
@@ -395,7 +415,11 @@ def run_gui():
     # Login Frame
     tk.Label(login_frame, text="Username:").pack()
 
-    username_options = ast.literal_eval(send_request(3, "empty"))
+    try:
+        username_options = ast.literal_eval(send_request(3, "empty"))
+    except Exception as e:
+        print(f"Error: {e}")
+        return 
     username_entry["values"] = username_options
     username_entry.config(postcommand=lambda: update_username_suggestions(None, username_entry, username_entry_var))
     username_entry.pack()

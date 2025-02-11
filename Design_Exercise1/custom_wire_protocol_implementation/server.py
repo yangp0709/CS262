@@ -4,10 +4,25 @@ import threading
 import hashlib
 import uuid
 import atexit
+import sys
 
+if sys.stdin.isatty():
+    while True:
+        HOST = input("Enter server host: ").strip()
+        if HOST:
+            break  # Ensure the user enters a non-empty host
 
-HOST = "0.0.0.0"
-SERVER_PORT = 5001
+    while True:
+        try:
+            SERVER_PORT = int(input("Enter server port: ").strip())
+            break  # Ensure the user enters a valid integer port
+        except ValueError:
+            print("Invalid input. Please enter a valid port number.")
+
+else:
+    HOST = "0.0.0.0"
+    SERVER_PORT = 5001
+
 VERSION = "1.0.0"
 
 # User data storage
@@ -292,6 +307,11 @@ def handle_client(conn, addr):
       Returns:
         None
     """
+    # Check if the client's address matches the expected host and port
+    if addr[0] != HOST:
+        print(f"Connection attempt from an invalid address: {addr}")
+        conn.close()  # Close the connection immediately
+        return
     print(f"[NEW CONNECTION] {addr} connected.")
     try:
         # Expect the client to send its version number first
