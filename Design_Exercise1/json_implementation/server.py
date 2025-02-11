@@ -249,13 +249,17 @@ class ChatServer:
         if not unread_messages:
             return {"status": "error", "message": "No unread messages."}, False
 
-        # Mark only the requested batch of messages as read
-        for msg in unread_messages[:read_batch_num]:
+        # If read_batch_num is 0, mark all unread messages; otherwise mark only the specified batch.
+        if read_batch_num == 0:
+            batch = unread_messages
+        else:
+            batch = unread_messages[:read_batch_num]
+
+        for msg in batch:
             msg["status"] = "read"
 
         self.store.save()
-        return {"status": "success", "message": f"{len(unread_messages[:read_batch_num])} messages marked as read."}, False
-
+        return {"status": "success", "message": f"{len(batch)} messages marked as read."}, False
 
     def handle_delete_account(self, request, conn):
         """

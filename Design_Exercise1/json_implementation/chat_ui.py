@@ -261,6 +261,7 @@ def chat_window(contact):
                 sender_disp = "You" if m["from"] == current_user else m["from"]
                 text = f"{sender_disp}: {m['message']}\n"
                 chat_text.insert(tk.END, text)
+        chat_text.see(tk.END) # Keep the view at the bottom
 
         # Only allow sending messages if all unread messages are processed
         can_send_message = total_unread == 0  
@@ -349,6 +350,7 @@ def chat_window(contact):
                         update_conversation_list()
                     else:
                         messagebox.showerror("Error", response["message"] if response else "No response from server.")
+    chat_text.after(100, lambda: chat_text.see(tk.END))
     chat_text.bind("<Double-Button-1>", on_message_double_click)
 
     def on_close_chat_window():
@@ -530,5 +532,6 @@ conversation_list.bind("<Double-Button-1>", lambda _: open_chat())
 tk.Button(chat_frame, text="Logout", command=logout).pack(pady=5)
 tk.Button(chat_frame, text="Delete Account", command=delete_account).pack(pady=5)
 
-load_all_usernames()
-root.mainloop()
+if __name__ == '__main__':
+    load_all_usernames()
+    root.mainloop()
