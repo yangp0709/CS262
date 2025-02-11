@@ -210,6 +210,7 @@ def chat_window(contact):
                 sender_disp = "You" if m["from"]==current_user else m["from"]
                 text = f"{sender_disp}: {m['message']}\n"
                 chat_text.insert(tk.END, text)
+                chat_text.see(tk.END) # Keep the view at the bottom
         chat_text.configure(state=tk.DISABLED)
 
     def send_message():
@@ -263,7 +264,6 @@ def chat_window(contact):
         read_batch_num = int(read_batch_num_new.get())
         unread_counter = 0
         send_request(6, f"{current_user}|{contact}|{read_batch_num}")
-    
     # Chat_window setup
     if contact in chat_windows:
         if chat_windows[contact].winfo_exists():
@@ -278,6 +278,7 @@ def chat_window(contact):
     chat_win.protocol("WM_DELETE_WINDOW", lambda: (save_undelivered(), chat_win.destroy(), update_conversation_list()))
 
     chat_text = scrolledtext.ScrolledText(chat_win, state=tk.DISABLED, height=15, width=50)
+    chat_text.after(100, lambda: chat_text.see(tk.END))
     chat_text.pack()
     chat_text.bind("<Double-Button-1>", on_message_double_click)
 
