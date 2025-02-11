@@ -29,19 +29,23 @@ def add_message(contact, msg):
     return True
 
 def check_version_number():
-    conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    conn.connect((SERVER_HOST, SERVER_PORT))
+    try: 
+        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        conn.connect((SERVER_HOST, SERVER_PORT))
 
-    # Send version number first
-    conn.send(CLIENT_VERSION.encode().ljust(32))
-    # Receive the server's response on verison number match
-    response = conn.recv(1023).decode()
-    if response.startswith("error:"):
-        print(f"Error: {response}")
-        conn.close() 
-        return None # close client socket and exit due to version mismatch 
-    print(f"{response}") # success response for version match.
-    return conn
+        # Send version number first
+        conn.send(CLIENT_VERSION.encode().ljust(32))
+        # Receive the server's response on verison number match
+        response = conn.recv(1023).decode()
+        if response.startswith("error:"):
+            print(f"Error: {response}")
+            conn.close() 
+            return None # close client socket and exit due to version mismatch 
+        print(f"{response}") # success response for version match.
+        return conn
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
 
 
 def send_request(request_type, data):

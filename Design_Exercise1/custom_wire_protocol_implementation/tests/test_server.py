@@ -391,5 +391,6 @@ class TestServerHandlers(unittest.TestCase):
         self.assertEqual(response, "error: Failed to log out. Username does not exist in active users.")
         self.assertEqual(server.active_users, set(["testuser1"]))
         
+        
 if __name__ == '__main__':
     unittest.main()

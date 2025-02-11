@@ -35,19 +35,91 @@ class TestSendRequest(unittest.TestCase):
       updated_msg = {"id": 1, "from": "test_user", "message": "Hello, World!", "status": "read"}
       client.add_message(contact, updated_msg)
       assert client.conversations[contact][0] == updated_msg
-    
+
     @patch("socket.socket")
-    # @patch("tkinter.messagebox")
-    def test_send_request_success(self, mock_socket):
+    def test_check_version_number_matched(self, mock_socket):
+      """
+      Test check_version_number function when the client and server version numbers match successfully
+      """
+      # Mock socket instance
+      mock_conn = MagicMock()
+      mock_socket.return_value = mock_conn
+      # Simulated response from the server
+      mock_conn.recv.return_value = b'success: Version matched'
+      response = client.check_version_number()
+      self.assertEqual(mock_conn, response)
+      mock_socket.assert_called_once_with(socket.AF_INET, socket.SOCK_STREAM)
+      mock_conn.connect.assert_called_once()
+      mock_conn.send.assert_called_once_with(client.CLIENT_VERSION.encode().ljust(32))
+      mock_conn.recv.assert_called_once()
+
+    @patch("socket.socket")
+    def test_check_version_number_mismatch(self, mock_socket):
+      """
+      Test check_version_number function when the client and server versions mismatch
+      """        
+      # Mock socket instance
+      mock_conn = MagicMock()
+      mock_socket.return_value = mock_conn
+      # Simulated response from the server
+      mock_conn.recv.return_value = b"error: Version mismatch. Server: 1.000, Client: 2.000"
+      response = client.check_version_number()
+      self.assertIsNone(response)
+      mock_socket.assert_called_once_with(socket.AF_INET, socket.SOCK_STREAM)
+      mock_conn.connect.assert_called_once()
+      mock_conn.send.assert_called_once_with(client.CLIENT_VERSION.encode().ljust(32))
+      mock_conn.recv.assert_called_once()
+
+    @patch("socket.socket")
+    def test_check_version_number_connect_error(self, mock_socket):
         """
-        Test send_request function during succes
+        Test check_version_number when client fails to connect
         """
         # Mock socket instance
         mock_conn = MagicMock()
         mock_socket.return_value = mock_conn
         
+        # Simulate connection failure
+        mock_conn.connect.side_effect = Exception("Connection failed")
+        response = client.check_version_number()
+        self.assertIsNone(response)
+        mock_socket.assert_called_once_with(socket.AF_INET, socket.SOCK_STREAM)
+        mock_conn.connect.assert_called_once()
+        mock_conn.send.assert_not_called()
+        mock_conn.recv.assert_not_called()
+
+    @patch("socket.socket")
+    def test_check_version_number_send_error(self, mock_socket):
+        """
+        Test check_version_number function when client fails to connect
+        """
+        # Mock socket instance
+        mock_conn = MagicMock()
+        mock_socket.return_value = mock_conn
+        
+        # Simulate send failure
+        mock_conn.send.side_effect = Exception("Send failed")
+        response = client.check_version_number()
+        
+        # Assert that the function returns None (since the connection failed)
+        self.assertIsNone(response)
+        mock_socket.assert_called_once_with(socket.AF_INET, socket.SOCK_STREAM)
+        mock_conn.connect.assert_called_once()
+        mock_conn.send.assert_called_once()
+        mock_conn.close.assert_not_called()
+
+    @patch("client.check_version_number")
+    @patch("tkinter.messagebox.showerror")
+    def test_send_request_success(self, mock_messagebox, mock_check_version_number):
+        """
+        Test send_request function during succes
+        """
+        # Mock socket instance
+        mock_socket = MagicMock()
+        mock_check_version_number.return_value = mock_socket
+        
         # Simulated response from the server
-        mock_conn.recv.return_value = b'response'
+        mock_socket.recv.return_value = b'response'
         
         # Call function
         request_type = 2
@@ -56,75 +128,64 @@ class TestSendRequest(unittest.TestCase):
         response = client.send_request(request_type, data)
         
         # Assertions
-        mock_socket.assert_called_once_with(socket.AF_INET, socket.SOCK_STREAM)
-        mock_conn.connect.assert_called_once()
-        mock_conn.send.assert_called_once_with(message)
-        mock_conn.recv.assert_called_once()
-        mock_conn.close.assert_called_once()
+        mock_socket.send.assert_called_once_with(message)
+        mock_socket.recv.assert_called_once()
+        mock_socket.close.assert_called_once()
         self.assertEqual(response, 'response')
-    
-    @patch("socket.socket")
-    def test_send_request_connect_error(self, mock_socket):
-        """
-        Test send_request function when client fails to connect
-        """
-        # Mock socket instance
-        mock_conn = MagicMock()
-        mock_socket.return_value = mock_conn
-        
-        # Simulate connection failure
-        mock_conn.connect.side_effect = Exception("Connection failed")
-        
-        # Call the function
-        response = client.send_request(1, "Test Data")
-        
-        # Assert that the function returns None (since the connection failed)
-        self.assertIsNone(response)
-        mock_conn.connect.assert_called_once()
-        mock_conn.send.assert_not_called()
-        mock_conn.close.assert_not_called()
 
-    @patch("socket.socket")
-    def test_send_request_send_error(self, mock_socket):
+    @patch("client.check_version_number")
+    @patch("tkinter.messagebox.showerror")
+    def test_send_request_send_error(self, mock_messagebox, mock_check_version_number):
         """
-        Test send_request function when client fails to connect
+        Test send_request function when client fails to send
         """
         # Mock socket instance
-        mock_conn = MagicMock()
-        mock_socket.return_value = mock_conn
+        mock_socket = MagicMock()
+        mock_check_version_number.return_value = mock_socket
         
         # Simulate send failure
-        mock_conn.send.side_effect = Exception("Send failed")
+        mock_socket.send.side_effect = Exception("Send failed")
         
         # Call the function
         response = client.send_request(1, "Test Data")
         
         # Assert that the function returns None (since the connection failed)
         self.assertIsNone(response)
-        mock_conn.connect.assert_called_once()
-        mock_conn.send.assert_called_once()
-        mock_conn.close.assert_not_called()
+        mock_socket.send.assert_called_once()
+        mock_socket.close.assert_not_called()
 
-    @patch("socket.socket")
-    def test_send_request_close_error(self, mock_socket):
+    @patch("client.check_version_number")
+    @patch("tkinter.messagebox.showerror")
+    def test_send_request_close_error(self, mock_messagebox, mock_check_version_number):
         """
-        Test send_request function when client fails to connect
+        Test send_request function when client fails to close
         """
         # Mock socket instance
-        mock_conn = MagicMock()
-        mock_socket.return_value = mock_conn
+        mock_socket = MagicMock()
+        mock_check_version_number.return_value = mock_socket
         
-        # Simulate socket close failure
-        mock_conn.close.side_effect = Exception("Close failed")
+        # Simulate send failure
+        mock_socket.close.side_effect = Exception("Close failed")
         
         # Call the function
         response = client.send_request(1, "Test Data")
         
         # Assert that the function returns None (since the connection failed)
         self.assertIsNone(response)
-        mock_conn.connect.assert_called_once()
-        mock_conn.send.assert_called_once()
-        mock_conn.close.assert_called_once()
+        mock_socket.send.assert_called_once()
+        mock_socket.close.assert_called_once()
+
+    @patch("client.check_version_number")
+    def test_send_request_check_version_error(self, mock_check_version_number):
+        """
+        Test send_request function when something fails in check_version_number
+        """
+        mock_check_version_number.return_value = None
+    
+        # Call function and expect None due to error
+        response = client.send_request(1, "Hello")
+        
+        self.assertIsNone(response)
 
 
     # GETS STUCK AT UPDATE_CHAT_WINDOW
@@ -469,7 +530,8 @@ class TestSendRequest(unittest.TestCase):
         self.assertIsNone(client.logout(), msg=None)
 
     @patch('client.send_request')
-    def test_logout_request_error2(self, mock_send_request):
+    @patch("tkinter.messagebox.showerror")
+    def test_logout_request_error2(self, mock_messsagebox, mock_send_request):
         """
         Test logout function where the logout errors out due logout function error in the server
         """
