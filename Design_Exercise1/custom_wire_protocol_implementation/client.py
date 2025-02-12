@@ -242,6 +242,9 @@ def subscribe_thread():
                     if add_message(sender, message_data):
                         update_conversation_list()
                         if sender in chat_windows and chat_windows[sender].winfo_exists():
+                            if message_data["status"] == "deleted":
+                                if any(m["from"]==sender and m["status"]=="unread" for m in conversations.get(sender, [])):
+                                    continue
                             update_chat_window(sender)
                 else:
                     messagebox.showerror("Error", response)
