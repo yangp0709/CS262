@@ -338,11 +338,6 @@ def handle_client(conn, addr):
 
             None
     """
-    # Check if the client's address matches the expected host and port
-    if addr[0] != HOST:
-        print(f"Connection attempt from an invalid address: {addr}")
-        conn.close()  # Close the connection immediately
-        return
     print(f"[NEW CONNECTION] {addr} connected.")
     try:
         # Expect the client to send its version number first
