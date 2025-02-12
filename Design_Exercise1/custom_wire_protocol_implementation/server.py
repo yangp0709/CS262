@@ -6,6 +6,8 @@ import uuid
 import atexit
 import sys
 
+# Get HOST and SERVER_PORT from CLI if file ran from terminal. 
+# Otherwise use the default values (so that functions run for tests)
 if sys.stdin.isatty():
     while True:
         HOST = input("Enter server host: ").strip()
@@ -35,12 +37,15 @@ subscribers_lock = threading.Lock()
 
 def handle_exit():
     """
-      Clear stored users, messages, and subscribers
+        Clear stored users, messages, and subscribers
 
-      Params:
-        None
-      Returns:
-        None
+        Params:
+
+            None
+
+        Returns:
+
+            None
     """
     print("[INFO] Shutting down server gracefully...")
     users.clear()
@@ -57,23 +62,27 @@ atexit.register(handle_exit)
 
 def hash_password(password):
     """
-      Hash the given password.
+        Hash the given password.
 
-      Params:
-        password: The password to hash.
-      Returns:
-        A SHA-256 hash of the password.
+        Params:
+
+            password: The password to hash.
+        Returns:
+
+            A SHA-256 hash of the password.
     """
     return hashlib.sha256(password.encode()).hexdigest()
 
 def handle_register(msg_data):
     """
-      Handle a registration request
+        Handle a registration request
 
-      Params:
-        msg_data: data from client containig username and password separated by '|'.
-      Returns:
-        response: string for status of registration
+        Params:
+
+            msg_data: data from client containig username and password separated by '|'.
+        Returns:
+
+            response: string for status of registration
     """
     username, password = msg_data.split('|')
     if username in users:
@@ -85,12 +94,14 @@ def handle_register(msg_data):
 
 def handle_login(msg_data):
     """
-      Handle a login request
+        Handle a login request
 
-      Params:
-        msg_data: data from client containing username and password separated by '|'.
-      Returns:
-        response: string for status of login
+        Params:
+
+            msg_data: data from client containing username and password separated by '|'.
+        Returns:
+
+            response: string for status of login
     """
     username, password = msg_data.split('|')
     password = hash_password(password)
@@ -109,24 +120,28 @@ def handle_login(msg_data):
 
 def handle_list_users():
     """
-      Returns a list of active users
+        Returns a list of active users
 
-      Params:
-        None
-      Returns:
-        response: string of list of active users
+        Params:
+
+            None
+        Returns:
+
+            response: string of list of active users
     """
     active_users_list = str([u for u, data in users.items() if not data.get("deleted", False)])
     return active_users_list
 
 def handle_send(msg_data):
     """
-      Handle sending a message
+        Handle sending a message
 
-      Params:
-        msg_data: data from client containing sender, recipient, and message separated by '|'
-      Returns:
-        response: string for status of sending a message
+        Params:
+
+            msg_data: data from client containing sender, recipient, and message separated by '|'
+        Returns:
+
+            response: string for status of sending a message
     """
     sender, recipient, message = msg_data.split('|', 2)
     if recipient in users:
@@ -148,15 +163,19 @@ def handle_send(msg_data):
 
 def handle_subscribe(conn, addr, msg_data):
     """
-      Handles a user's subscription request.
+        Handles a user's subscription request.
 
-      Params:
-        conn: Client socket
-        addr: Address of client
-        msg_data: data from client containing the username of the subscribing client.
+        Params:
 
-      Returns:
-        None
+            conn: Client socket
+
+            addr: Address of client
+
+            msg_data: data from client containing the username of the subscribing client.
+
+        Returns:
+
+            None
     """
     username = msg_data
     if username not in users:
@@ -190,12 +209,14 @@ def handle_subscribe(conn, addr, msg_data):
 
 def handle_mark_read(msg_data):
     """
-      Handle a mark read request
+        Handle a mark read request
 
-      Params:
-        msg_data: data from client containing username, contact, and read_batch_num
-      Returns:
-        response: string for status of marking read
+        Params:
+
+            msg_data: data from client containing username, contact, and read_batch_num
+        Returns:
+
+            response: string for status of marking read
     """
     username, contact, read_batch_num = msg_data.split('|')
     read_batch_num = int(read_batch_num) # if 0, that means mark read for all unreads (no batching)
@@ -214,12 +235,14 @@ def handle_mark_read(msg_data):
 
 def handle_delete_unread_message(msg_data):
     """
-      Handle a delete unread message request
+        Handle a delete unread message request
 
-      Params:
-        msg_data: data from client containing sender, recipient, msg_id
-      Returns:
-        response: string for status of deleting an unread message
+        Params:
+
+            msg_data: data from client containing sender, recipient, msg_id
+        Returns:
+
+            response: string for status of deleting an unread message
     """
     sender, recipient, msg_id = msg_data.split('|')
     if recipient in users:
@@ -244,12 +267,14 @@ def handle_delete_unread_message(msg_data):
 
 def handle_receive_messages(msg_data):
     """
-      Handle receive messages request
+        Handle receive messages request
 
-      Params:
-        msg_data: data from client containing username
-      Returns:
-        response: string for status of receiving messages. If success, it also contains the list of messages
+        Params:
+
+            msg_data: data from client containing username
+        Returns:
+
+            response: string for status of receiving messages. If success, it also contains the list of messages
     """
     username = msg_data
     if username in users:
@@ -261,12 +286,14 @@ def handle_receive_messages(msg_data):
 
 def handle_delete_account(msg_data):
     """
-      Handle delete account request
+        Handle delete account request
 
-      Params:
-        msg_data: data from client containing username
-      Returns:
-        response: string for status of deleting account
+        Params:
+
+            msg_data: data from client containing username
+        Returns:
+
+            response: string for status of deleting account
     """
     username = msg_data
     if username in users and not users[username].get("deleted", False):
@@ -281,12 +308,14 @@ def handle_delete_account(msg_data):
 
 def handle_logout(msg_data):
     """
-      Handle log out account request
+        Handle log out account request
 
-      Params:
-        msg_data: data from client containing username
-      Returns:
-        response: string fro status of logging out
+        Params:
+
+            msg_data: data from client containing username
+        Returns:
+
+            response: string fro status of logging out
     """
     username = msg_data 
     with active_users_lock:
@@ -299,13 +328,15 @@ def handle_logout(msg_data):
 
 def handle_client(conn, addr):
     """
-      Handle communication with connected client
+        Handle communication with connected client
 
-      Params:
-        conn: The socket object representing the client connection.
-        addr: A tuple containing the client's IP address and port number.
-      Returns:
-        None
+        Params:
+
+            conn: The socket object representing the client connection.
+            addr: A tuple containing the client's IP address and port number.
+        Returns:
+
+            None
     """
     # Check if the client's address matches the expected host and port
     if addr[0] != HOST:
@@ -393,11 +424,14 @@ def handle_client(conn, addr):
 
 def start_server():
     """
-      Start server
-      Params:
-        None
-      Returns:
-        None
+        Start server
+
+        Params:
+
+            None
+        Returns:
+        
+            None
     """
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

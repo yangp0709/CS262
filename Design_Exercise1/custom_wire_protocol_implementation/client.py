@@ -7,6 +7,8 @@ import ast
 from chat_ui_objects import root, login_frame, username_entry_var, username_entry, password_entry, chat_frame, chat_label, new_conversation_entry_var, new_conversation_entry, conversation_list
 import sys
 
+# Get SERVER_HOST and SERVER_PORT from CLI if file ran from terminal. 
+# Otherwise use the default values (so that functions run for tests)
 if sys.stdin.isatty():
     while True:
         SERVER_HOST = input("Enter server host: ").strip()
@@ -33,8 +35,20 @@ chat_windows = {}   # open chat windows
 undelivered = {} # saves undelivered message
 subscription_socket = None
 
-# Helper: Add a message if its ID isn’t already present, or update it if it exists.
 def add_message(contact, msg):
+    """
+        Add a message if its ID isn’t already present, or update it if it exists.
+
+        Params:
+
+            contact: username
+
+            msg: message {id, from, message, status} that you like to add to conversations
+
+        Returns:
+
+            True
+    """
     if contact not in conversations:
         conversations[contact] = []
     for i, existing in enumerate(conversations[contact]):
@@ -45,6 +59,18 @@ def add_message(contact, msg):
     return True
 
 def check_version_number():
+    """
+        Checks that version number matches between client and server
+
+        Params:
+
+            None 
+
+        Returns:
+
+            conn or None: client socket if success, None if error or Exception
+    """
+    # Check connection
     try: 
         conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         conn.connect((SERVER_HOST, SERVER_PORT))
@@ -52,6 +78,7 @@ def check_version_number():
     except Exception as e:
         print(f"Error: Could not connect to {SERVER_HOST}:{SERVER_PORT}. Please ensure the server is running and reachable.")
         return None
+    # Check version number
     try:
         # Send version number first
         conn.send(CLIENT_VERSION.encode().ljust(32))
@@ -69,7 +96,17 @@ def check_version_number():
 
 
 def send_request(request_type, data):
-    """Send a request to the server using a custom binary protocol."""
+    """
+        Send a request to the server using a custom binary protocol.
+
+        Params:
+
+            request_type: integer that corresponds to a specific request to the server
+
+        Returns:
+
+            response.decode() or None: response from the server or None if there is error in connection to server
+    """
     try:
         client = check_version_number()
         if client is not None:
@@ -86,7 +123,21 @@ def send_request(request_type, data):
         return None
 
 def update_username_suggestions(event, entry, entry_var):
-    """Update the dropdown options for username based on user input."""
+    """
+        Update the dropdown options for username based on user input.
+
+        Params:
+
+            event: event object that Tkinter automatically passes
+
+            entry: ttk.Combobox object
+
+            entry_var: tk.StringVar() object
+
+        Returns:
+
+            None
+    """
     typed = entry_var.get().lower()
     
     try:
@@ -103,6 +154,17 @@ def update_username_suggestions(event, entry, entry_var):
         entry["values"] = filtered
 
 def login():
+    """
+        Login a user with the username and password from user input
+
+        Params:
+
+            None
+
+        Returns:
+
+            None
+    """
     global current_user
     username = username_entry.get().strip()
     password = password_entry.get().strip()
@@ -124,6 +186,18 @@ def login():
         messagebox.showerror("Login Failed", response if response else "No response from server.")
 
 def register():
+    """
+        Register a new user with username and password from user input
+
+        Params:
+
+            None
+        
+        Returns:
+
+            None
+
+    """
     username = username_entry.get().strip()
     password = password_entry.get().strip()
     if not username or not password:
@@ -137,6 +211,17 @@ def register():
 
 
 def subscribe_thread():
+    """
+        Manages a subscription thread for receiving real-time messages.
+
+        Params: 
+
+            None
+
+        Returns:
+
+            None
+    """
     global current_user, subscription_socket
     try:
         subscription_socket = check_version_number()
@@ -167,6 +252,17 @@ def subscribe_thread():
             subscription_socket.close()
 
 def load_conversations():
+    """
+        Load all of the messages stored for current user
+        
+        Params:
+
+            None 
+        
+        Returns:
+
+            None
+    """
     response = send_request(8, current_user)
     if response and response.startswith("success"):
         messages = ast.literal_eval(response.split(":", 1)[1]) #list of dict of messages
@@ -178,8 +274,18 @@ def load_conversations():
     else:
         messagebox.showerror("Error", response if response else "No response from server.")
 
-# Update conversation list by skipping deleted messages entirely.
 def update_conversation_list():
+    """
+        Update conversation list by skipping deleted messages and showing number of unreads
+
+        Params:
+
+            None
+
+        Returns:
+
+            None
+    """
     conversation_list.delete(0, tk.END)
     for contact, msgs in conversations.items():
         visible = [m for m in msgs if m.get("status") != "deleted"]
@@ -192,6 +298,17 @@ def update_conversation_list():
         conversation_list.insert(tk.END, display)
 
 def open_chat():
+    """
+        Open chat window triggered by double clicking on conversation_list ListBox
+        
+        Params:
+
+            None
+        
+        Returns:
+
+            None
+    """
     selection = conversation_list.curselection()
     if not selection:
         return
@@ -199,6 +316,30 @@ def open_chat():
     chat_window(contact)
 
 def chat_window(contact):
+    """
+        Display for the chat window, including printing messages to the chat window, send messages, read unread messages, unsend messages.
+
+        Helper functions:
+
+            refresh_chat_text(): refreshes the output of the chat window by rewriting the nondeleted messages
+
+            send_message(): sends a message by sending the message to the server
+
+            on_message_double_click(): unsend a message triggered by double click
+
+            save_undelivered(): saves undelivered message in the message entry so that when user closes the chat window and then reopens, the undelivered message is still present
+
+            update_read_batch_num(): updates read_batch_num and sends request to server to mark read messages as unread, triggered by pressing on read_batch_num_button
+        
+        Params:
+
+            contact: username
+        
+        Returns:
+        
+            None
+    """
+
     # helper functions
     def refresh_chat_text():
         chat_text.configure(state=tk.NORMAL)
@@ -253,9 +394,6 @@ def chat_window(contact):
                         messagebox.showerror("Error", response if response else "No response from server.")
 
     def save_undelivered():
-        """
-            Saves undelivered message in the message entry so that when user closes the chat window and then reopens, the undelivered message is still present
-        """
         undelivered[contact] = message_entry.get().strip()
         return
     
@@ -264,6 +402,7 @@ def chat_window(contact):
         read_batch_num = int(read_batch_num_new.get())
         unread_counter = 0
         send_request(6, f"{current_user}|{contact}|{read_batch_num}")
+
     # Chat_window setup
     if contact in chat_windows:
         if chat_windows[contact].winfo_exists():
@@ -336,6 +475,17 @@ def chat_window(contact):
 
 
 def update_chat_window(contact):
+    """
+        Update chat window by sending request to server to mark as read, and update status
+        
+        Params:
+
+            contact: username
+        
+        Returns:
+
+            None
+    """
     if contact in chat_windows and chat_windows[contact].winfo_exists():
         # Only mark as read messages from this specific contact.
         if any(m["from"]==contact and m["status"]=="unread" for m in conversations.get(contact, [])):
@@ -347,11 +497,33 @@ def update_chat_window(contact):
         chat_windows[contact].refresh_chat_text()
 
 def check_new_messages():
+    """
+        Periodically checks for new messages for the current user.
+
+        Params:
+
+            None
+        
+        Returns:
+
+            None
+    """
     if current_user:
         load_conversations()
         root.after(5000, check_new_messages)
 
 def start_new_conversation():
+    """
+        Start a conversation with a recipient
+
+        Params:
+
+            None
+        
+        Returns:
+
+            None
+    """
     recipient = new_conversation_entry.get().strip()
     if not recipient:
         messagebox.showwarning("Input Error", "Recipient cannot be empty.")
@@ -373,7 +545,18 @@ def start_new_conversation():
         update_conversation_list()
         chat_window(recipient)
 
-def delete_account(): 
+def delete_account():
+    """
+        Delete an account by clearing information for the user and sending request for deleting account to the server
+
+        Params:
+
+            None 
+
+        Returns:
+
+            None
+    """
     if messagebox.askyesno("Confirm", "Delete your account?"):
         response = send_request(9, current_user)
         if response and response.startswith("success"):
@@ -386,6 +569,18 @@ def delete_account():
             messagebox.showerror("Error", response if response else "No response from server.")
 
 def logout():
+    """
+        Logout the current user, clear out certain information for the user, and send request for logging out of account to the server
+
+        Params:
+
+            None 
+
+        Returns:
+
+            None
+    
+    """
     global current_user, subscription_socket
     if current_user:
         response = send_request(10, current_user)
@@ -410,6 +605,18 @@ def logout():
             messagebox.showerror("Error", response if response else "No response from server.")
 
 def run_gui():
+    """
+        Set up the GUI elements
+
+        Params:
+
+            None 
+
+        Returns:
+
+            None
+    """
+
     root.title("Chat Application")
     root.geometry("400x500")
 

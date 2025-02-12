@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 
+# Define tkinter objects used in the UI
+
 root = tk.Tk()
 
 # Login Frame
