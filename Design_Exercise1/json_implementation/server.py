@@ -217,6 +217,10 @@ class ChatServer:
             "status": "unread"
         }
         users[recipient]["messages"].append(msg)
+        sender_msg = msg.copy()
+        sender_msg["status"] = "sent"
+        sender_msg["from"] = recipient 
+        users[sender]["messages"].append(sender_msg)
         self.store.save()
         with self.subscribers_lock:
             if recipient in self.subscribers:
