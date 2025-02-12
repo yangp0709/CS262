@@ -4,6 +4,7 @@ import threading
 import hashlib
 import uuid
 import atexit
+import sys
 
 class UserStore:
     def __init__(self, filename="users.json"):
@@ -36,7 +37,7 @@ class UserStore:
         self.save()
 
 class ChatServer:
-    def __init__(self, host="0.0.0.0", port=5001, store=None):
+    def __init__(self, host=None, port=None, store=None):
         """
         Initialize the ChatServer.
 
@@ -377,6 +378,33 @@ class ChatServer:
             threading.Thread(target=self.client_thread, args=(conn, addr)).start()
             print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
 
+def get_server_config():
+    """
+    Get the server host and port from the user.
+
+    If stdin is a tty, prompt the user for a host and port. Otherwise, use
+    the default host and port (0.0.0.0:5001).
+
+    :return: A tuple containing the server host and port.
+    """
+    if sys.stdin.isatty():
+        while True:
+            HOST = input("Enter server host: ").strip()
+            if HOST:
+                break
+        while True:
+            try:
+                PORT = int(input("Enter server port: ").strip())
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid port number.")
+    else:
+        HOST = "0.0.0.0"
+        PORT = 5001
+    return HOST, PORT
+
+
 if __name__ == "__main__":
-    chat_server = ChatServer()
+    HOST, PORT = get_server_config()
+    chat_server = ChatServer(host=HOST, port=PORT)
     chat_server.start()

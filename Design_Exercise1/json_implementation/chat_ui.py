@@ -4,9 +4,22 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext
 from tkinter import ttk
 import threading
+import sys
 
-SERVER_HOST = "localhost"
-SERVER_PORT = 5001
+if sys.stdin.isatty():
+    while True:
+        SERVER_HOST = input("Enter server host: ").strip()
+        if SERVER_HOST:
+            break
+    while True:
+        try:
+            SERVER_PORT = int(input("Enter server port: ").strip())
+            break
+        except ValueError:
+            print("Invalid input. Please enter a valid port number.")
+else:
+    SERVER_HOST = "localhost"
+    SERVER_PORT = 5001
 
 current_user = None
 conversations = {}
