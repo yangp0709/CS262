@@ -4,7 +4,9 @@ import threading
 import hashlib
 import uuid
 import atexit
+import sys
 
+SERVER_VERSION = "1.0.0"
 class UserStore:
     def __init__(self, filename="users.json"):
         """
@@ -36,7 +38,7 @@ class UserStore:
         self.save()
 
 class ChatServer:
-    def __init__(self, host="0.0.0.0", port=5001, store=None):
+    def __init__(self, host=None, port=None, store=None):
         """
         Initialize the ChatServer.
 
@@ -249,13 +251,17 @@ class ChatServer:
         if not unread_messages:
             return {"status": "error", "message": "No unread messages."}, False
 
-        # Mark only the requested batch of messages as read
-        for msg in unread_messages[:read_batch_num]:
+        # If read_batch_num is 0, mark all unread messages; otherwise mark only the specified batch.
+        if read_batch_num == 0:
+            batch = unread_messages
+        else:
+            batch = unread_messages[:read_batch_num]
+
+        for msg in batch:
             msg["status"] = "read"
 
         self.store.save()
-        return {"status": "success", "message": f"{len(unread_messages[:read_batch_num])} messages marked as read."}, False
-
+        return {"status": "success", "message": f"{len(batch)} messages marked as read."}, False
 
     def handle_delete_account(self, request, conn):
         """
@@ -334,6 +340,28 @@ class ChatServer:
         :return: None
         """
         print(f"[NEW CONNECTION] {addr} connected.")
+        # Version check block
+        try:
+            client_version_data = conn.recv(32)
+            if not client_version_data:
+                conn.close()
+                print(f"[DISCONNECTED] {addr} (no version info)")
+                return
+            client_version = client_version_data.decode("utf-8").strip()
+            print(f"Client version: {client_version}")
+            if client_version != SERVER_VERSION:
+                error_msg = f"error: Version mismatch. Server: {SERVER_VERSION}, Client: {client_version}"
+                conn.send(error_msg.encode())
+                conn.close()
+                print(f"[DISCONNECTED] {addr} due to version mismatch")
+                return
+            conn.send("success: Version matched".encode())
+        except Exception as e:
+            print(f"[ERROR] Version check failed for {addr}: {e}")
+            conn.close()
+            return
+
+        # Normal processing loop
         while True:
             try:
                 data = conn.recv(4096).decode()
@@ -353,7 +381,6 @@ class ChatServer:
                     break
         conn.close()
         print(f"[DISCONNECTED] {addr} disconnected.")
-
     def start(self):
         """
         Start the server and listen for incoming connections.
@@ -373,6 +400,33 @@ class ChatServer:
             threading.Thread(target=self.client_thread, args=(conn, addr)).start()
             print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
 
+def get_server_config():
+    """
+    Get the server host and port from the user.
+
+    If stdin is a tty, prompt the user for a host and port. Otherwise, use
+    the default host and port (0.0.0.0:5001).
+
+    :return: A tuple containing the server host and port.
+    """
+    if sys.stdin.isatty():
+        while True:
+            HOST = input("Enter server host: ").strip()
+            if HOST:
+                break
+        while True:
+            try:
+                PORT = int(input("Enter server port: ").strip())
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid port number.")
+    else:
+        HOST = "0.0.0.0"
+        PORT = 5001
+    return HOST, PORT
+
+
 if __name__ == "__main__":
-    chat_server = ChatServer()
+    HOST, PORT = get_server_config()
+    chat_server = ChatServer(host=HOST, port=PORT)
     chat_server.start()

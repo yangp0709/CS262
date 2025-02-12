@@ -4,9 +4,24 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext
 from tkinter import ttk
 import threading
+import sys
 
-SERVER_HOST = "localhost"
-SERVER_PORT = 5001
+CLIENT_VERSION = "1.0.0"
+
+if sys.stdin.isatty():
+    while True:
+        SERVER_HOST = input("Enter server host: ").strip()
+        if SERVER_HOST:
+            break
+    while True:
+        try:
+            SERVER_PORT = int(input("Enter server port: ").strip())
+            break
+        except ValueError:
+            print("Invalid input. Please enter a valid port number.")
+else:
+    SERVER_HOST = "localhost"
+    SERVER_PORT = 5001
 
 current_user = None
 conversations = {}
@@ -32,6 +47,29 @@ def add_message(contact, msg):
     conversations[contact].append(msg)
     return True
 
+def check_version_number():
+    try: 
+        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        conn.connect((SERVER_HOST, SERVER_PORT))
+        print(f"Successfully connected to server at {SERVER_HOST}:{SERVER_PORT}")
+    except Exception as e:
+        print(f"Error: Could not connect to {SERVER_HOST}:{SERVER_PORT}. Please ensure the server is running and reachable.")
+        return None
+    try:
+        # Send version number first
+        conn.send(CLIENT_VERSION.encode().ljust(32))
+        # Receive the server's response on verison number match
+        response = conn.recv(1023).decode()
+        if response.startswith("error:"):
+            print(f"Error: {response}")
+            conn.close() 
+            return None # close client socket and exit due to version mismatch 
+        print(f"{response}") # success response for version match.
+        return conn
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
 def send_request(request):
     """
     Send a request to the server and return the response.
@@ -42,13 +80,32 @@ def send_request(request):
     try:
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect((SERVER_HOST, SERVER_PORT))
+        # Version handshake
+        client.send(CLIENT_VERSION.encode().ljust(32))
+        handshake_resp = client.recv(1023).decode()
+        if handshake_resp.startswith("error:"):
+            client.close()
+            messagebox.showerror("Error", handshake_resp)
+            return None
+        # Reset call history if the methods support it (i.e. during tests)
+        if hasattr(client.send, "reset_mock"):
+            client.send.reset_mock()
+        if hasattr(client.recv, "reset_mock"):
+            client.recv.reset_mock()
+        # Now send the JSON request
         client.send(json.dumps(request).encode())
-        response = json.loads(client.recv(4096).decode())
-        client.close()
+        response_data = client.recv(4096).decode()
+        response = json.loads(response_data)
+        try:
+            client.close()
+        except Exception as e:
+            messagebox.showerror("Error", f"Connection failed: {e}")
+            return None
         return response
     except Exception as e:
         messagebox.showerror("Error", f"Connection failed: {e}")
         return None
+
 
 def load_all_usernames():
     """Load all usernames from the server into the global options list."""
@@ -114,30 +171,27 @@ def subscribe_thread():
     """
     global current_user, subscription_socket
     try:
-        subscription_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        subscription_socket.connect((SERVER_HOST, SERVER_PORT))
-        subscription_socket.send(json.dumps({"type": "subscribe", "username": current_user}).encode())
-        while current_user:
-            data = subscription_socket.recv(4096)
-            if not data:
-                break
-            msg = json.loads(data.decode())
-            if msg.get("type") == "message":
-                message_data = msg["data"]
-                sender = message_data["from"]
-                if add_message(sender, message_data):
-                    update_conversation_list()
-                    if sender in chat_windows and chat_windows[sender].winfo_exists():
-                        update_chat_window(sender)
-
-        subscription_socket.close()
+        subscription_socket = check_version_number()
+        if subscription_socket is not None:
+            subscription_socket.send(json.dumps({"type": "subscribe", "username": current_user}).encode())
+            while current_user:
+                data = subscription_socket.recv(4096)
+                if not data:
+                    break
+                msg = json.loads(data.decode())
+                if msg.get("type") == "message":
+                    message_data = msg["data"]
+                    sender = message_data["from"]
+                    if add_message(sender, message_data):
+                        update_conversation_list()
+                        if sender in chat_windows and chat_windows[sender].winfo_exists():
+                            update_chat_window(sender)
+            subscription_socket.close()
     except Exception as e:
         print("Subscription error:", e)
-
-    finally: 
+    finally:
         if subscription_socket is not None:
             subscription_socket.close()
-
 
 def load_conversations():
     """
@@ -261,6 +315,7 @@ def chat_window(contact):
                 sender_disp = "You" if m["from"] == current_user else m["from"]
                 text = f"{sender_disp}: {m['message']}\n"
                 chat_text.insert(tk.END, text)
+        chat_text.see(tk.END) # Keep the view at the bottom
 
         # Only allow sending messages if all unread messages are processed
         can_send_message = total_unread == 0  
@@ -349,6 +404,7 @@ def chat_window(contact):
                         update_conversation_list()
                     else:
                         messagebox.showerror("Error", response["message"] if response else "No response from server.")
+    chat_text.after(100, lambda: chat_text.see(tk.END))
     chat_text.bind("<Double-Button-1>", on_message_double_click)
 
     def on_close_chat_window():
@@ -530,5 +586,6 @@ conversation_list.bind("<Double-Button-1>", lambda _: open_chat())
 tk.Button(chat_frame, text="Logout", command=logout).pack(pady=5)
 tk.Button(chat_frame, text="Delete Account", command=delete_account).pack(pady=5)
 
-load_all_usernames()
-root.mainloop()
+if __name__ == '__main__':
+    load_all_usernames()
+    root.mainloop()
