@@ -185,6 +185,10 @@ def subscribe_thread():
                     if add_message(sender, message_data):
                         update_conversation_list()
                         if sender in chat_windows and chat_windows[sender].winfo_exists():
+                            if message_data.get("status") == "deleted":
+                                unread = [m for m in conversations.get(sender, []) if m["from"] == sender and m["status"] == "unread"]
+                                if unread:
+                                    continue
                             update_chat_window(sender)
             subscription_socket.close()
     except Exception as e:
