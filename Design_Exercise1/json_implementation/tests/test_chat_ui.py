@@ -313,5 +313,67 @@ class TestChatUI(unittest.TestCase):
         result = client.logout()
         self.assertIsNone(result)
 
+    @patch("socket.socket")
+    def test_check_version_number_matched(self, mock_socket):
+        """
+        Test check_version_number when versions match.
+        """
+        mock_conn = MagicMock()
+        mock_socket.return_value = mock_conn
+        # Simulated successful response from the server
+        mock_conn.recv.return_value = b"success: Version matched"
+        response = client.check_version_number()
+        self.assertEqual(response, mock_conn)
+        mock_socket.assert_called_once_with(socket.AF_INET, socket.SOCK_STREAM)
+        mock_conn.connect.assert_called_once_with((client.SERVER_HOST, client.SERVER_PORT))
+        mock_conn.send.assert_called_once_with(client.CLIENT_VERSION.encode().ljust(32))
+        mock_conn.recv.assert_called_once()
+
+    @patch("socket.socket")
+    def test_check_version_number_mismatch(self, mock_socket):
+        """
+        Test check_version_number when versions mismatch.
+        """
+        mock_conn = MagicMock()
+        mock_socket.return_value = mock_conn
+        # Simulated mismatch response from the server
+        mock_conn.recv.return_value = b"error: Version mismatch. Server: 1.000, Client: 2.000"
+        response = client.check_version_number()
+        self.assertIsNone(response)
+        mock_socket.assert_called_once_with(socket.AF_INET, socket.SOCK_STREAM)
+        mock_conn.connect.assert_called_once_with((client.SERVER_HOST, client.SERVER_PORT))
+        mock_conn.send.assert_called_once_with(client.CLIENT_VERSION.encode().ljust(32))
+        mock_conn.recv.assert_called_once()
+
+    @patch("socket.socket")
+    def test_check_version_number_connect_error(self, mock_socket):
+        """
+        Test check_version_number when connection fails.
+        """
+        mock_conn = MagicMock()
+        mock_socket.return_value = mock_conn
+        mock_conn.connect.side_effect = Exception("Connection failed")
+        response = client.check_version_number()
+        self.assertIsNone(response)
+        mock_socket.assert_called_once_with(socket.AF_INET, socket.SOCK_STREAM)
+        mock_conn.connect.assert_called_once_with((client.SERVER_HOST, client.SERVER_PORT))
+        mock_conn.send.assert_not_called()
+        mock_conn.recv.assert_not_called()
+
+    @patch("socket.socket")
+    def test_check_version_number_send_error(self, mock_socket):
+        """
+        Test check_version_number when send fails.
+        """
+        mock_conn = MagicMock()
+        mock_socket.return_value = mock_conn
+        mock_conn.send.side_effect = Exception("Send failed")
+        response = client.check_version_number()
+        self.assertIsNone(response)
+        mock_socket.assert_called_once_with(socket.AF_INET, socket.SOCK_STREAM)
+        mock_conn.connect.assert_called_once_with((client.SERVER_HOST, client.SERVER_PORT))
+        mock_conn.send.assert_called_once_with(client.CLIENT_VERSION.encode().ljust(32))
+
+
 if __name__ == "__main__":
     unittest.main()

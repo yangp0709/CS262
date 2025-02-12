@@ -6,6 +6,7 @@ import uuid
 import atexit
 import sys
 
+SERVER_VERSION = "1.0.0"
 class UserStore:
     def __init__(self, filename="users.json"):
         """
@@ -339,6 +340,28 @@ class ChatServer:
         :return: None
         """
         print(f"[NEW CONNECTION] {addr} connected.")
+        # Version check block
+        try:
+            client_version_data = conn.recv(32)
+            if not client_version_data:
+                conn.close()
+                print(f"[DISCONNECTED] {addr} (no version info)")
+                return
+            client_version = client_version_data.decode("utf-8").strip()
+            print(f"Client version: {client_version}")
+            if client_version != SERVER_VERSION:
+                error_msg = f"error: Version mismatch. Server: {SERVER_VERSION}, Client: {client_version}"
+                conn.send(error_msg.encode())
+                conn.close()
+                print(f"[DISCONNECTED] {addr} due to version mismatch")
+                return
+            conn.send("success: Version matched".encode())
+        except Exception as e:
+            print(f"[ERROR] Version check failed for {addr}: {e}")
+            conn.close()
+            return
+
+        # Normal processing loop
         while True:
             try:
                 data = conn.recv(4096).decode()
@@ -358,7 +381,6 @@ class ChatServer:
                     break
         conn.close()
         print(f"[DISCONNECTED] {addr} disconnected.")
-
     def start(self):
         """
         Start the server and listen for incoming connections.
