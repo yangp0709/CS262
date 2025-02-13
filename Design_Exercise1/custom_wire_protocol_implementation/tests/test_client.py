@@ -7,11 +7,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 # Now you can import from the client directory
 import client  # Adjust based on what you need to test
-
-# import pytest
-# from unittest.mock import Mock
-
-
 import unittest
 from unittest.mock import MagicMock, patch
 import socket
@@ -186,48 +181,6 @@ class TestSendRequest(unittest.TestCase):
         response = client.send_request(1, "Hello")
         
         self.assertIsNone(response)
-
-
-    # GETS STUCK AT UPDATE_CHAT_WINDOW
-    # @patch('socket.socket')  # Mock socket
-    # @patch('client.add_message')  # Mock add_message
-    # @patch('client.update_conversation_list')  # Mock update_conversation_list
-    # @patch('client.update_chat_window')  # Mock update_chat_window
-    # # @patch('client.send_request')
-    # def test_successful_subscribe_thread(self, mock_update_chat_window, mock_update_conversation_list, mock_add_message, mock_socket):
-    #     # Mock the socket connection
-    #     client.current_user = "test_user"
-    #     client.subscription_socket = MagicMock()
-    #     mock_toplevel = MagicMock()
-    #     mock_toplevel.winfo_exists.return_value = True
-    #     mock_toplevel.refresh_chat_text = True
-    #     client.chat_windows = {'test_user': mock_toplevel}
-    #     mock_socket.return_value = client.subscription_socket
-    #     # mock_send_request.return_value = True
-        
-    #     # Mock the response from the server
-    #     client.subscription_socket.recv.return_value = b"success:{'id': 1, 'from': 'test_user', 'message': 'Hello!', 'stats': 'unread'}"  # Server response
-    #     # mock_add_message.return_value = True  # Simulate add_message returning True
-    #     mock_update_chat_window.return_value = True
-
-    #     # Call the function
-    #     client.subscribe_thread()
-
-    #     # Ensure socket connection was made
-    #     # mock_conn.connect.assert_called_once()
-        
-    #     # Ensure the correct message was sent
-    #     request_type = 5
-    #     data = client.current_user
-    #     message = struct.pack("!I", request_type) + data.encode()
-    #     client.subscription_socket.send.assert_called_once_with(message)
-
-    #     # # Ensure the response was processed
-    #     client.subscription_socket.recv.assert_called_once()
-
-    #     mock_add_message.assert_called_once_with('test_user', {'id': 1, 'from': 'test_user', 'message': 'Hello!', 'stats': 'unread'})
-    #     mock_update_conversation_list.assert_called_once()
-    #     mock_update_chat_window.assert_called_once_with('test_user')
 
     @patch('client.send_request')  # Mock send_request to control the response
     @patch('client.add_message')  # Mock add_message to ensure it is called
