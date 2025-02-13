@@ -1,7 +1,6 @@
 import socket
 import json
 import threading
-import hashlib
 import uuid
 import atexit
 import sys
@@ -67,14 +66,6 @@ class ChatServer:
             "receive": self.handle_receive,
         }
 
-    def hash_password(self, password):
-        """
-        Hash the given password.
-
-        :param password: The password to hash.
-        :return: A SHA-256 hash of the password.
-        """
-        return hashlib.sha256(password.encode()).hexdigest()
 
     def process_request(self, request, conn):
         """
@@ -101,7 +92,7 @@ class ChatServer:
         if username in self.store.users:
             return {"status": "error", "message": "Username already exists."}, False
         self.store.users[username] = {
-            "password": self.hash_password(password),
+            "password": password,
             "messages": []
         }
         self.store.save()
@@ -116,7 +107,7 @@ class ChatServer:
         :return: A tuple containing the response and a boolean indicating whether the client should stop.
         """
         username = request["username"]
-        password = self.hash_password(request["password"])
+        password = request["password"]
         user = self.store.users.get(username)
         if user and user["password"] == password and not user.get("deleted", False):
             with self.active_users_lock:

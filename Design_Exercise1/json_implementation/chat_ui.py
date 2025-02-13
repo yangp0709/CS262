@@ -5,6 +5,7 @@ from tkinter import messagebox, scrolledtext
 from tkinter import ttk
 import threading
 import sys
+import hashlib
 
 CLIENT_VERSION = "1.0.0"
 
@@ -30,6 +31,15 @@ subscription_socket = None
 options = []
 unsent_texts = {}
 
+
+def hash_password(password):
+    """
+    Hash the given password.
+
+    :param password: The password to hash.
+    :return: A SHA-256 hash of the password.
+    """
+    return hashlib.sha256(password.encode()).hexdigest()
 def add_message(contact, msg):
     """
     Add a message to the list of messages for a given contact.
@@ -77,30 +87,19 @@ def send_request(request):
     :param request: The request to send, a JSON-decodable dict.
     :return: The response from the server, a JSON-decoded dict, or None if the connection failed.
     """
+    client = check_version_number()
+    if not client:
+        messagebox.showerror("Error", f"Could not connect to {SERVER_HOST}:{SERVER_PORT}. Please ensure the server is running and reachable.")
+        return None
     try:
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client.connect((SERVER_HOST, SERVER_PORT))
-        # Version handshake
-        client.send(CLIENT_VERSION.encode().ljust(32))
-        handshake_resp = client.recv(1023).decode()
-        if handshake_resp.startswith("error:"):
-            client.close()
-            messagebox.showerror("Error", handshake_resp)
-            return None
-        # Reset call history if the methods support it (i.e. during tests)
         if hasattr(client.send, "reset_mock"):
             client.send.reset_mock()
         if hasattr(client.recv, "reset_mock"):
             client.recv.reset_mock()
-        # Now send the JSON request
         client.send(json.dumps(request).encode())
         response_data = client.recv(4096).decode()
         response = json.loads(response_data)
-        try:
-            client.close()
-        except Exception as e:
-            messagebox.showerror("Error", f"Connection failed: {e}")
-            return None
+        client.close()
         return response
     except Exception as e:
         messagebox.showerror("Error", f"Connection failed: {e}")
@@ -131,7 +130,7 @@ def login():
     if not username or not password:
         messagebox.showwarning("Input Error", "Username and password cannot be empty.")
         return
-    response = send_request({"type": "login", "username": username, "password": password})
+    response = send_request({"type": "login", "username": username, "password": hash_password(password)})
     if response and response["status"] == "success":
         current_user = username
         login_frame.pack_forget()
@@ -153,7 +152,7 @@ def register():
     if not username or not password:
         messagebox.showwarning("Input Error", "Username and password cannot be empty.")
         return
-    response = send_request({"type": "register", "username": username, "password": password})
+    response = send_request({"type": "register", "username": username, "password": hash_password(password)})
     if response and response["status"] == "success":
         messagebox.showinfo("Success", response["message"])
     else:
