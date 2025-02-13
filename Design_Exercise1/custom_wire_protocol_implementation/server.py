@@ -1,7 +1,6 @@
 import socket
 import struct
 import threading
-import hashlib
 import uuid
 import atexit
 import sys
@@ -60,19 +59,6 @@ def handle_exit():
 # Clear users automatically when the program terminates.
 atexit.register(handle_exit)
 
-def hash_password(password):
-    """
-        Hash the given password.
-
-        Params:
-
-            password: The password to hash.
-        Returns:
-
-            A SHA-256 hash of the password.
-    """
-    return hashlib.sha256(password.encode()).hexdigest()
-
 def handle_register(msg_data):
     """
         Handle a registration request
@@ -88,7 +74,7 @@ def handle_register(msg_data):
     if username in users:
         response = "error: This username is unavailable"
     else:
-        users[username] = {"password": hash_password(password), "messages": []}
+        users[username] = {"password": password, "messages": []}
         response = "success: Account created"
     return response
 
@@ -104,7 +90,6 @@ def handle_login(msg_data):
             response: string for status of login
     """
     username, password = msg_data.split('|')
-    password = hash_password(password)
     if username in users and users[username]["password"] == password and not users[username].get("deleted", False):
         with active_users_lock:
             if username in active_users:

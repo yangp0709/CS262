@@ -1,3 +1,4 @@
+import hashlib
 import socket
 import tkinter as tk
 from tkinter import messagebox, scrolledtext
@@ -34,6 +35,19 @@ conversations = {}
 chat_windows = {}   # open chat windows
 undelivered = {} # saves undelivered message
 subscription_socket = None
+
+def hash_password(password):
+    """
+        Hash the given password.
+
+        Params:
+
+            password: The password to hash.
+        Returns:
+
+            A SHA-256 hash of the password.
+    """
+    return hashlib.sha256(password.encode()).hexdigest()
 
 def add_message(contact, msg):
     """
@@ -171,7 +185,7 @@ def login():
     if not username or not password:
         messagebox.showwarning("Input Error", "Username and password cannot be empty.")
         return
-    response = send_request(2, f"{username}|{password}")
+    response = send_request(2, f"{username}|{hash_password(password)}")
     if response and response.startswith("success"):
         current_user = username
         login_frame.pack_forget()
@@ -203,7 +217,7 @@ def register():
     if not username or not password:
         messagebox.showwarning("Input Error", "Username and password cannot be empty.")
         return
-    response = send_request(1, f"{username}|{password}")
+    response = send_request(1, f"{username}|{hash_password(password)}")
     if response and response.startswith("success"):
         messagebox.showinfo("Success", response)
     else:
