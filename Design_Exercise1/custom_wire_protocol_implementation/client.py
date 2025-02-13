@@ -379,12 +379,12 @@ def chat_window(contact):
             sender, recipient = current_user, contact
             response = send_request(4, f"{sender}|{recipient}|{message}")
             if response and response.startswith("success"):
-                msg_obj = ast.literal_eval(response.split(':', 1)[1]) # msg_id, from, message, status
+                msg_id = response.split(':', 1)[1] # msg_id
+                msg_obj = {"id": msg_id, "from": current_user, "message": message, "status": "unread"}
                 add_message(contact, msg_obj)
                 update_conversation_list()
                 update_chat_window(contact)
                 message_entry.delete(0, tk.END)
-
             else:
                 messagebox.showerror("Error", response if response else "No response from server.")
         else:

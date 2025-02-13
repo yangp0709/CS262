@@ -141,7 +141,7 @@ def handle_send(msg_data):
                   with sub["cond"]:
                       sub["queue"].append(msg)
                       sub["cond"].notify()
-          response = f"success:{str(msg)}"
+          response = f"success:{str(msg['id'])}"
     else:
         response = "error: Recipient not found"
     return response
