@@ -164,3 +164,127 @@ Figure 3:
 
 Figure 4:
 ![](experiment/time_taken_custom_only_plot.png)
+
+
+# Client Test Cases
+
+## Message Handling
+- **test_add_message:**  
+  - Ensures new messages are added to a conversation.
+  - Verifies that adding a duplicate message (same ID) updates the existing message.
+
+## send_request Functionality
+- **test_send_request_success:**  
+  - Mocks a successful connection.
+  - Verifies correct JSON encoding/decoding of the request/response.
+- **test_send_request_connect_error:**  
+  - Simulates a connection failure.
+  - Checks that no data is sent and that an error is reported.
+- **test_send_request_send_error:**  
+  - Simulates an error during sending.
+  - Confirms that the error is caught and handled.
+- **test_send_request_close_error:**  
+  - Forces an error during socket closure.
+  - Ensures that the error is caught and the function returns None.
+
+## Conversation Loading & Updating
+- **test_load_conversations_success:**  
+  - Verifies that messages are loaded correctly from a successful server response.
+- **test_load_conversations_no_messages:**  
+  - Checks behavior when the server returns an error (no messages loaded).
+- **test_update_conversation_list:**  
+  - Ensures the conversation list displays unread indicators correctly.
+  - Verifies the list updates appropriately when messages change state.
+
+## Chat Window Behavior
+- **test_update_chat_window_unread_messages_marked_as_read:**  
+  - Confirms that unread messages are marked as read when a chat window is refreshed.
+- **test_update_chat_window_with_all_read_messages:**  
+  - Checks that no unnecessary calls (like re-marking) occur when all messages are already read.
+
+## Periodic Checks and Logout
+- **test_check_new_messages:**  
+  - Verifies that the periodic message check calls `load_conversations` and reschedules itself.
+- **test_logout (various):**  
+  - Confirms that logout clears the current user.
+  - Checks that subscription sockets are closed.
+  - Ensures that UI components are reset and unsent messages are cleared.
+
+## Version Check
+- **test_check_version_number_matched:**  
+  - Ensures that when versions match, the connection is established.
+- **test_check_version_number_mismatch:**  
+  - Checks that a version mismatch returns an error and closes the connection.
+- **test_check_version_number_connect_error:**  
+  - Simulates a connection error during version check.
+- **test_check_version_number_send_error:**  
+  - Simulates an error during the sending of the version string.
+
+---
+
+# Server Test Cases
+
+## Account Registration & Login
+- **test_handle_register_success:**  
+  - Verifies that a new account is created successfully.
+- **test_handle_register_duplicate:**  
+  - Checks that registering with an existing username returns an error.
+- **test_handle_login_success:**  
+  - Confirms that a valid login returns success and adds the user to active users.
+- **test_handle_login_already_logged_in:**  
+  - Ensures that trying to log in a user who is already logged in returns an appropriate error.
+- **test_handle_login_invalid_password:**  
+  - Checks that login with an incorrect password returns an error.
+
+## User Listing
+- **test_handle_list_users:**  
+  - Ensures that the user listing returns only non-deleted users when using a wildcard prefix.
+
+## Message Sending
+- **test_handle_send_success:**  
+  - Verifies that sending a message is processed successfully.
+- **test_handle_send_nonexistent_recipient:**  
+  - Confirms that sending a message to a non-existent recipient returns an error.
+- **test_handle_send_deleted_recipient:**  
+  - Checks that sending a message to a deleted recipient returns an error.
+
+## Marking Messages as Read
+- **test_mark_all_messages_as_read:**  
+  - Ensures that a read_batch_num marks all unread messages from a contact as read.
+- **test_mark_specific_number_of_messages:**  
+  - Verifies that a specific number of messages are marked read, based on the provided batch size.
+- **test_user_not_found:**  
+  - Confirms that marking messages for a non-existent user returns an error.
+- **test_no_unread_messages:**  
+  - Checks that if there are no unread messages from a contact, the function returns an appropriate response.
+- **test_no_messages_from_contact:**  
+  - Verifies behavior when there are no messages from the specified contact.
+
+## Message Deletion
+- **test_handle_delete_unread_message_success:**  
+  - Tests that an unread message sent by the user can be deleted successfully.
+- **test_handle_delete_unread_message_not_found:**  
+  - Checks that attempting to delete a non-existent message returns an error.
+- **test_handle_delete_unread_message_already_read:**  
+  - Ensures that a message already read cannot be deleted.
+- **test_handle_delete_unread_message_recipient_not_found:**  
+  - Verifies that deletion fails if the recipient does not exist.
+
+## Message Retrieval
+- **test_handle_receive_messages_success:**  
+  - Confirms that messages are retrieved successfully for an existing user.
+- **test_handle_receive_messages_account_not_found:**  
+  - Ensures that attempting to retrieve messages for a non-existent user returns an error.
+
+## Account Deletion & Logout
+- **test_handle_delete_account_success:**  
+  - Checks that an account is marked as deleted successfully.
+- **test_handle_delete_account_nonexistent:**  
+  - Verifies that attempting to delete a non-existent account returns an error.
+- **test_handle_delete_account_already_deleted:**  
+  - Confirms that trying to delete an already deleted account returns an error.
+- **test_handle_logout_success:**  
+  - Ensures that logout removes the user from the active users set.
+- **test_handle_logout_error:**  
+  - Verifies that logout behaves correctly when the username is not active.
+

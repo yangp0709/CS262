@@ -9,9 +9,15 @@ SERVER_VERSION = "1.0.0"
 class UserStore:
     def __init__(self, filename="users.json"):
         """
-        Initialize the UserStore.
+            Initialize the UserStore.
 
-        :param filename: The file to store the user data in. Defaults to users.json.
+        Params:
+        
+            filename: The file to store the user data in. Defaults to users.json.
+
+        Returns: 
+
+            None
         """
         self.filename = filename
         self.users = {}
@@ -19,31 +25,49 @@ class UserStore:
 
     def save(self):
         """
-        Save the user data to a file.
+            Save the user data to a file.
 
-        The data is written to the file specified by the filename argument to
-        the UserStore constructor, or to users.json if no filename was specified.
+        Params:
+
+            None
+
+        Returns:
+
+            None
         """
         with open(self.filename, "w") as f:
             json.dump(self.users, f, indent=4)
 
     def clear(self):
         """
-        Clear the user store of all users and messages.
+            Clear the user store of all users and messages.
 
-        This method will also save the cleared user store to disk.
+        Params:
+
+            None
+
+        Returns:
+
+            None  
         """
         self.users = {}
         self.save()
 
 class ChatServer:
+
     def __init__(self, host=None, port=None, store=None):
         """
-        Initialize the ChatServer.
+            Initialize the ChatServer.
 
-        :param host: The host to bind the server to. Defaults to 0.0.0.0.
-        :param port: The port to bind the server to. Defaults to 5001.
-        :param store: The UserStore to use. If not provided, a new UserStore will be created.
+        Params:
+
+            host: The host to bind the server to. Defaults to 0.0.0.0.
+            port: The port to bind the server to. Defaults to 5001.
+            store: The UserStore to use. If not provided, a new UserStore will be created.
+
+        Returns:
+
+            None
         """
         self.host = host
         self.port = port
@@ -69,11 +93,16 @@ class ChatServer:
 
     def process_request(self, request, conn):
         """
-        Process the given request and return a response.
+            Process the given request and return a response.
 
-        :param request: The request to process, a JSON-decoded dict.
-        :param conn: The connection to send the response on.
-        :return: A tuple containing the response and a boolean indicating whether the client should stop.
+        Params:
+
+            request: The request to process, a JSON-decoded dict.
+            conn: The connection to send the response on.
+        
+        Returns:
+
+            A tuple containing the response and a boolean indicating whether the client should stop.
         """
         req_type = request.get("type")
         handler = self.handlers.get(req_type, self.handle_unknown)
@@ -81,11 +110,16 @@ class ChatServer:
 
     def handle_register(self, request, conn):
         """
-        Handle a registration request.
+            Handle a registration request.
 
-        :param request: The request to process, a JSON-decoded dict.
-        :param conn: The connection to send the response on.
-        :return: A tuple containing the response and a boolean indicating whether the client should stop.
+        Params:
+
+            request: The request to process, a JSON-decoded dict.
+            conn: The connection to send the response on.
+        
+        Returns: 
+        
+            A tuple containing the response and a boolean indicating whether the client should stop.
         """
         username = request["username"]
         password = request["password"]
@@ -100,11 +134,16 @@ class ChatServer:
 
     def handle_login(self, request, conn):
         """
-        Handle a login request.
+            Handle a login request.
 
-        :param request: The request to process, a JSON-decoded dict.
-        :param conn: The connection to send the response on.
-        :return: A tuple containing the response and a boolean indicating whether the client should stop.
+        Params:
+
+            request: The request to process, a JSON-decoded dict.
+            conn: The connection to send the response on.
+        
+        Returns: 
+
+            A tuple containing the response and a boolean indicating whether the client should stop.
         """
         username = request["username"]
         password = request["password"]
@@ -119,6 +158,18 @@ class ChatServer:
         return {"status": "error", "message": "Invalid credentials or account deleted."}, False
     
     def handle_logout(self, request, conn):
+        """
+            Handle a logout request.
+
+        Params:
+
+            request: The request to process, a JSON-decoded dict.
+            conn: The connection to send the response on.
+        
+        Returns: 
+
+            A tuple containing the response and a boolean indicating whether the client should stop.
+        """
         username = request["username"]
         with self.active_users_lock:
             self.active_users.discard(username)
@@ -126,11 +177,15 @@ class ChatServer:
 
     def handle_list_users(self, request, conn):
         """
-        Handle a list users request.
+            Handle a list users request.
 
-        :param request: The request to process, a JSON-decoded dict.
-        :param conn: The connection to send the response on.
-        :return: A tuple containing the response and a boolean indicating whether the client should stop.
+        Params:
+
+            request: The request to process, a JSON-decoded dict.
+            conn: The connection to send the response on.
+        
+        Returns: 
+            A tuple containing the response and a boolean indicating whether the client should stop.
         """
         
         prefix = request.get("prefix", "")
@@ -143,11 +198,16 @@ class ChatServer:
 
     def handle_subscribe(self, request, conn):
         """
-        Handle a subscribe request.
+            Handle a subscribe request.
 
-        :param request: The request to process, a JSON-decoded dict.
-        :param conn: The connection to send the response on.
-        :return: A tuple containing the response and a boolean indicating whether the client should stop.
+        Params:
+            
+            request: The request to process, a JSON-decoded dict.
+            conn: The connection to send the response on.
+        
+        Returns: 
+            
+            A tuple containing the response and a boolean indicating whether the client should stop.
         """
         username = request["username"]
         if username not in self.store.users:
@@ -163,13 +223,15 @@ class ChatServer:
 
     def handle_subscription(self, username):
         """
-        Handle the subscription for a given user.
+            Handle the subscription for a given user.
 
-        This method is run in a separate thread and will run indefinitely until
-        the user is unsubscribed. It will send all messages from the user's queue
-        to the user's connection as they are added to the queue.
+        Params:
+            
+            username: The username to handle the subscription for.
 
-        :param username: The username to handle the subscription for.
+        Returns:
+
+            None
         """
         sub = self.subscribers[username]
         conn = sub["conn"]
@@ -187,11 +249,15 @@ class ChatServer:
 
     def handle_send(self, request, conn):
         """
-        Handle a send request.
+            Handle a send request.
 
-        :param request: The request to process, a JSON-decoded dict.
-        :param conn: The connection to send the response on.
-        :return: A tuple containing the response and a boolean indicating whether the client should stop.
+        Params:
+            
+            request: The request to process, a JSON-decoded dict.
+            conn: The connection to send the response on.
+        Returns:
+            
+            A tuple containing the response and a boolean indicating whether the client should stop.
         """
         sender = request["sender"]
         recipient = request["recipient"]
@@ -219,11 +285,16 @@ class ChatServer:
 
     def handle_mark_read(self, request, conn):
         """
-        Handle a mark read request.
+            Handle a mark read request.
 
-        :param request: The request to process, a JSON-decoded dict.
-        :param conn: The connection to send the response on.
-        :return: A tuple containing the response and a boolean indicating whether the client should stop.
+        Params:
+        
+            request: The request to process, a JSON-decoded dict.
+            conn: The connection to send the response on.
+        
+        Returns: 
+            
+            A tuple containing the response and a boolean indicating whether the client should stop.
         """
         DEFAULT_READ_BATCH_NUM = 5
         username = request["username"]
@@ -256,11 +327,16 @@ class ChatServer:
 
     def handle_delete_account(self, request, conn):
         """
-        Handle a delete account request.
+            Handle a delete account request.
 
-        :param request: The request to process, a JSON-decoded dict.
-        :param conn: The connection to send the response on.
-        :return: A tuple containing the response and a boolean indicating whether the client should stop.
+        Params
+            
+            request: The request to process, a JSON-decoded dict.
+            conn: The connection to send the response on.
+        
+        Returns:
+            
+            A tuple containing the response and a boolean indicating whether the client should stop.
         """
         username = request["username"]
         user = self.store.users.get(username)
@@ -274,11 +350,15 @@ class ChatServer:
 
     def handle_delete(self, request, conn):
         """
-        Handle a delete message request.
+            Handle a delete message request.
 
-        :param request: The request to process, a JSON-decoded dict.
-        :param conn: The connection to send the response on.
-        :return: A tuple containing the response and a boolean indicating whether the client should stop.
+        Params:
+        
+            request: The request to process, a JSON-decoded dict.
+            conn: The connection to send the response on.
+
+        Returns: 
+            A tuple containing the response and a boolean indicating whether the client should stop.
         """
         sender = request["sender"]
         recipient = request["recipient"]
@@ -301,11 +381,15 @@ class ChatServer:
 
     def handle_receive(self, request, conn):
         """
-        Handle a receive request.
+            Handle a receive request.
 
-        :param request: The request to process, a JSON-decoded dict.
-        :param conn: The connection to send the response on.
-        :return: A tuple containing the response and a boolean indicating whether the client should stop.
+        Params:
+        
+            request: The request to process, a JSON-decoded dict.
+            conn: The connection to send the response on.
+        Returns: 
+        
+            A tuple containing the response and a boolean indicating whether the client should stop.
         """
         username = request["username"]
         if username in self.store.users:
@@ -314,21 +398,31 @@ class ChatServer:
 
     def handle_unknown(self, request, conn):
         """
-        Handle an unknown request type.
+            Handle an unknown request type.
 
-        :param request: The request to process, a JSON-decoded dict.
-        :param conn: The connection to send the response on.
-        :return: A tuple containing the response and a boolean indicating whether the client should stop.
+        Params:
+            
+            request: The request to process, a JSON-decoded dict.
+            conn: The connection to send the response on.
+            
+        Returns: 
+            
+            A tuple containing the response and a boolean indicating whether the client should stop.
         """
         return {"status": "error", "message": "Unknown request type."}, False
 
     def client_thread(self, conn, addr):
         """
-        Handle a new client connection.
+            Handle a new client connection.
 
-        :param conn: The connection to the client.
-        :param addr: The address of the client.
-        :return: None
+        Params:
+            
+            conn: The connection to the client.
+            addr: The address of the client.
+        
+        Returns: 
+        
+            None
         """
         print(f"[NEW CONNECTION] {addr} connected.")
         # Version check block
@@ -374,13 +468,15 @@ class ChatServer:
         print(f"[DISCONNECTED] {addr} disconnected.")
     def start(self):
         """
-        Start the server and listen for incoming connections.
+            Start the server and listen for incoming connections.
 
-        This method will block until the server is stopped. It will start a new
-        thread for each incoming connection, which will be handled by the
-        client_thread method.
+       Params:
 
-        :return: None
+            None
+
+        Returns:
+
+            None
         """
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.bind((self.host, self.port))
@@ -393,12 +489,16 @@ class ChatServer:
 
 def get_server_config():
     """
-    Get the server host and port from the user.
-
-    If stdin is a tty, prompt the user for a host and port. Otherwise, use
+        Get the server host and port from the user. Otherwise, use
     the default host and port (0.0.0.0:5001).
 
-    :return: A tuple containing the server host and port.
+    Parmas:
+
+        None
+
+    Return:
+    
+        A tuple containing the server host and port or default host and port.
     """
     if sys.stdin.isatty():
         while True:

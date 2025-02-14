@@ -34,19 +34,28 @@ unsent_texts = {}
 
 def hash_password(password):
     """
-    Hash the given password.
+        Hash the given password.
 
-    :param password: The password to hash.
-    :return: A SHA-256 hash of the password.
+    Params: 
+    
+        password: The password to hash.
+    
+    Return: 
+    
+        A SHA-256 hash of the password.
     """
     return hashlib.sha256(password.encode()).hexdigest()
 def add_message(contact, msg):
     """
-    Add a message to the list of messages for a given contact.
+        Add a message to the list of messages for a given contact.
 
-    :param contact: The contact to add the message for.
-    :param msg: The message to add.
-    :return: True if the message was added, False otherwise.
+    Params:
+    
+        contact: The contact to add the message for.
+        msg: The message to add.
+    
+    Return: 
+        True if the message was added, False otherwise.
     """
     if contact not in conversations:
         conversations[contact] = []
@@ -58,6 +67,17 @@ def add_message(contact, msg):
     return True
 
 def check_version_number():
+    """
+        Check that the version number matches between client and server
+
+    Params:
+    
+        None
+
+    Returns:
+
+        conn or None: client socket if success, None if error or Exception
+    """
     try: 
         conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         conn.connect((SERVER_HOST, SERVER_PORT))
@@ -82,10 +102,15 @@ def check_version_number():
 
 def send_request(request):
     """
-    Send a request to the server and return the response.
+        Send a request to the server and return the response.
 
-    :param request: The request to send, a JSON-decodable dict.
-    :return: The response from the server, a JSON-decoded dict, or None if the connection failed.
+    Params:
+    
+        request: The request to send, a JSON-decodable dict.
+    
+    Returns: 
+    
+        response.decode() or None: response from the server or None if there is error in connection to server
     """
     client = check_version_number()
     if not client:
@@ -107,12 +132,40 @@ def send_request(request):
 
 
 def load_all_usernames():
-    """Load all usernames from the server into the global options list."""
+    """
+        Load all usernames from the server into the global options list.
+
+    Params:
+
+        None
+
+    Returns:
+
+        None
+    
+    """
     update_username_suggestions(None, username_combobox, username_var)
     if current_user:
         update_username_suggestions(None, recipient_combobox, recipient_var, exclude_self=True)
 
 def update_username_suggestions(event, combobox, var, exclude_self=False):
+    """
+        Update the dropdown options for username based on user input.
+
+    Params:
+
+        event: event object that Tkinter automatically passes
+
+        entry: ttk.Combobox object
+
+        entry_var: tk.StringVar() object'
+
+        exclude_self: bool
+
+    Returns:
+
+        None
+    """
     typed = var.get().lower() if var.get() else ""
     response = send_request({"type": "list_users", "prefix": "*"})
     suggestions = response["users"] if response and response.get("status") == "success" else []
@@ -123,7 +176,17 @@ def update_username_suggestions(event, combobox, var, exclude_self=False):
     combobox["values"] = suggestions
 
 def login():
-    """Handle the 'Login' button click."""
+    """
+        Login a user with the username and password from user input
+
+        Params:
+
+            None
+
+        Returns:
+
+            None
+    """
     global current_user
     username = username_var.get().strip()
     password = password_entry.get().strip()
@@ -145,7 +208,16 @@ def login():
 
 def register():
     """
-    Handle the "Register" button being clicked.
+        Register a new user with username and password from user input
+
+        Params:
+
+            None
+        
+        Returns:
+
+            None
+
     """
     username = username_var.get().strip()
     password = password_entry.get().strip()
@@ -160,13 +232,15 @@ def register():
 
 def subscribe_thread():
     """
-    A thread that subscribes to the server and waits for messages.
+        Manages a subscription thread for receiving real-time messages.
 
-    It will receive messages from the server and add them to the conversation
-    list. If the chat window is open for the sender of the message, it will
-    also update the chat window.
+        Params: 
 
-    :return: None
+            None
+
+        Returns:
+
+            None
     """
     global current_user, subscription_socket
     try:
@@ -202,12 +276,15 @@ def subscribe_thread():
 
 def load_conversations():
     """
-    Load the conversations for the current user.
+        Load all of the messages stored for current user
+        
+        Params:
 
-    This function sends a request to the server for all messages for the current
-    user and updates the conversation list with the received messages.
+            None 
+        
+        Returns:
 
-    :return: None
+            None
     """
     response = send_request({"type": "receive", "username": current_user})
     if response and response["status"] == "success":
@@ -221,9 +298,15 @@ def load_conversations():
 
 def update_conversation_list():
     """
-    Update the conversation list with all messages for the current user.
+        Update conversation list by skipping deleted messages and showing number of unreads
 
-    :return: None
+        Params:
+
+            None
+
+        Returns:
+
+            None
     """
     conversation_list.delete(0, tk.END)
     
@@ -236,7 +319,15 @@ def update_conversation_list():
 
 def open_chat():
     """
-    Calls the chat_window function for the selected contact in the conversation list when selected.
+        Open chat window triggered by double clicking on conversation_list ListBox
+        
+        Params:
+
+            None
+        
+        Returns:
+
+            None
     """
     selection = conversation_list.curselection()
     if not selection:
@@ -246,13 +337,27 @@ def open_chat():
 
 def chat_window(contact):
     """
-    Open the chat window for the specified contact.
+        Display for the chat window, including printing messages to the chat window, send messages, read unread messages, unsend messages.
 
-    This method will open a new window with the conversation with the specified
-    contact.
+        Helper functions:
 
-    :param contact: The contact to open the chat window for.
-    :return: None
+            refresh_chat_text(): refreshes the output of the chat window by rewriting the nondeleted messages
+
+            send_message(): sends a message by sending the message to the server
+
+            on_message_double_click(): unsend a message triggered by double click
+
+            on_close_chat_window(): saves undelivered message in the message entry so that when user closes the chat window and then reopens, the undelivered message is still present
+
+            update_read_batch_num(): updates read_batch_num and sends request to server to mark read messages as unread, triggered by pressing on read_batch_num_button
+        
+        Params:
+
+            contact: username
+        
+        Returns:
+        
+            None
     """
     if contact in chat_windows:
         if chat_windows[contact].winfo_exists():
@@ -279,10 +384,6 @@ def chat_window(contact):
     read_batch_num_new.set(DEFAULT_READ_BATCH_NUM)
 
     def update_read_batch_num():
-        """
-        Updates the read batch number, which is the number of messages that are 
-        to be marked as read when the user clicks the "Mark as read" button.
-        """
         nonlocal read_batch_num, unread_counter
         read_batch_num = int(read_batch_num_new.get())  # Get new batch size
         unread_counter = 0  # Reset unread counter
@@ -291,9 +392,6 @@ def chat_window(contact):
 
 
     def refresh_chat_text():
-        """
-        Refreshes the chat text with the messages from the contact.
-        """
         nonlocal unread_counter, can_send_message
         chat_text.configure(state=tk.NORMAL)
         chat_text.delete(1.0, tk.END)
@@ -331,16 +429,6 @@ def chat_window(contact):
 
 
     def send_message():
-        """
-        Handle the "Send" button being clicked in a chat window.
-
-        This function will send the message in the message entry to the
-        recipient of the chat window, and update the conversation list and
-        chat window accordingly. If the request fails, it will show an error
-        message.
-
-        :return: None
-        """
         if can_send_message:
             message = message_entry.get().strip()
             if not message:
@@ -380,19 +468,6 @@ def chat_window(contact):
     chat_win.refresh_chat_text = refresh_chat_text
 
     def on_message_double_click(event):
-        """
-        Handle a double-click event on a message in a chat window.
-
-        This function will determine which message was double-clicked by getting the
-        line number of the click event from the chat text widget. It will then check
-        if that message was an unread message sent by the current user. If so, it
-        will prompt the user to delete the message. If the user confirms, it will
-        send a request to the server to delete the message. If the request is
-        successful, it will update the conversation list and chat window.
-
-        :param event: The double-click event.
-        :return: None
-        """
         index = chat_text.index(f"@{event.x},{event.y}")
         line_number = int(index.split(".")[0])
         visible_msgs = [m for m in conversations.get(contact, []) if m.get("status") != "deleted"]
@@ -415,13 +490,6 @@ def chat_window(contact):
     chat_text.bind("<Double-Button-1>", on_message_double_click)
 
     def on_close_chat_window():
-        """
-        Save the unsent message before closing the window.
-
-        This function is called when the user closes a chat window. It will save
-        the current contents of the message entry box to the unsent_texts dictionary
-        for the contact the window is for.
-        """
         unsent_texts[contact] = message_entry.get().strip()
         chat_win.destroy()
         update_conversation_list()
@@ -430,14 +498,15 @@ def chat_window(contact):
 
 def update_chat_window(contact):
     """
-    Update the chat window for the specified contact.
+        Update chat window by sending request to server to mark as read, and update status
+        
+        Params:
 
-    This method will check if there are any unread messages from the contact, and
-    if so, mark them as read. It will then update the conversation list and
-    refresh the chat window text.
+            contact: username
+        
+        Returns:
 
-    :param contact: The contact to update the chat window for.
-    :return: None
+            None
     """
     if contact in chat_windows and chat_windows[contact].winfo_exists():
         unread_msgs = [m for m in conversations.get(contact, []) if m["from"] == contact and m["status"] == "unread"]
@@ -451,13 +520,15 @@ def update_chat_window(contact):
 
 def check_new_messages():
     """
-    Periodically check for new messages and update the conversation list.
+        Periodically checks for new messages for the current user.
 
-    This function will be called every 5 seconds when the user is logged in.
-    It will load the conversations for the current user and schedule itself
-    to be called again.
+        Params:
 
-    :return: None
+            None
+        
+        Returns:
+
+            None
     """
     if current_user:
         load_conversations()
@@ -465,12 +536,15 @@ def check_new_messages():
 
 def start_new_conversation():
     """
-    Handle the "Start New Chat" button being clicked.
+        Start a conversation with a recipient
 
-    This function is called when the "Start New Chat" button is clicked. It
-    will check if the recipient is valid (i.e. it exists and is not the current
-    user), and then either open a new chat window if the conversation doesn't
-    already exist, or switch to the existing chat window if it does.
+        Params:
+
+            None
+        
+        Returns:
+
+            None
     """
     recipient = recipient_var.get().strip()
     if not recipient:
@@ -502,7 +576,15 @@ def start_new_conversation():
 
 def list_users():
     """
-    List all users in the system.
+        List all users in the system.
+
+    Params:
+
+        None
+
+    Returns:
+
+        None
     """
     response = send_request({"type": "list_users", "prefix": "*"})
     if response and response["status"] == "success":
@@ -513,12 +595,15 @@ def list_users():
 
 def delete_account():
     """
-    Delete the current user's account.
+        Delete an account by clearing information for the user and sending request for deleting account to the server
 
-    This method will prompt the user to confirm the deletion of their account.
-    If confirmed, it will send a delete account request to the server and clear
-    the conversations and chat windows. If the request was successful, it will
-    log the user out.
+        Params:
+
+            None 
+
+        Returns:
+
+            None
     """
     if messagebox.askyesno("Confirm", "Delete your account?"):
         response = send_request({"type": "delete_account", "username": current_user})
@@ -533,10 +618,16 @@ def delete_account():
 
 def logout():
     """
-    Log out of the chat application.
+        Logout the current user, clear out certain information for the user, and send request for logging out of account to the server
 
-    This method will reset the current user, unsubscribe from the server,
-    pack the login frame, and clear the new conversation entry field.
+        Params:
+
+            None 
+
+        Returns:
+
+            None
+    
     """
     global current_user, subscription_socket
     if current_user:
