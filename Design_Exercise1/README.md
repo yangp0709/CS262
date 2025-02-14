@@ -39,6 +39,6 @@ and input the desired host and port.
 
 To run the client on the terminal for json implementation, run
 ```
-python json_implementation/client.py
+python json_implementation/chat_ui.py
 ```
 and input the desired host and port.
