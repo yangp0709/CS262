@@ -142,7 +142,7 @@ def send_request(request_type, data):
         elif request_type == 7:  # Delete Unread Message
             sender, recipient, message_id = data.split('|')
             response = stub.DeleteUnreadMessage(chat_pb2.DeleteUnreadMessageRequest(sender=sender, recipient=recipient, message_id=message_id))
-            return response.message
+            return f"success:{str(response.message)}"
 
         elif request_type == 8:  # Load Conversations
             response = stub.ReceiveMessages(chat_pb2.ReceiveMessagesRequest(username=data))
@@ -155,7 +155,7 @@ def send_request(request_type, data):
 
         elif request_type == 10:  # Logout
             response = stub.Logout(chat_pb2.LogoutRequest(username=data))
-            return response.message
+            return f"success:{str(response.message)}"
 
         else:
             return "error: Unknown request type"
@@ -610,18 +610,25 @@ def logout():
             None
     
     """
-    global current_user, subscription_active
+    global current_user, subscription_active, conversations, chat_windows
     if current_user:
         response = send_request(10, current_user)
         if response.startswith("success"):
             current_user = None
             subscription_active = False
+            # Close all open chat windows
+            for win in list(chat_windows.values()):
+                if win.winfo_exists():
+                    win.destroy()
+            chat_windows.clear()
+            # Clear conversation data and update UI
+            conversations.clear()
+            conversation_list.delete(0, tk.END)
+            undelivered.clear()
             chat_frame.pack_forget()
             login_frame.pack()
-            new_conversation_entry.delete(0, tk.END)
-            undelivered.clear()
         else:
-            messagebox.showerror("Error", response if response else "No response from server.")
+            messagebox.showerror("Error", response or "No response from server.")
 
 
 def run_gui():
