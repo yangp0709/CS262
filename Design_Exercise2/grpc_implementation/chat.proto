@@ -1,14 +1,16 @@
+syntax = "proto3";
+
 service ChatService {
-  rpc Register(RegisterRequest) returns (RegisterResponse);
-  rpc Login(LoginRequest) returns (LoginResponse);
-  rpc Logout(LogoutRequest) returns (LogoutResponse);
-  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
-  rpc Subscribe(SubscribeRequest) returns (stream ChatMessage);
-  rpc Send(SendRequest) returns (SendResponse);
-  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse);
-  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
-  rpc Delete(DeleteRequest) returns (DeleteResponse);
-  rpc Receive(ReceiveRequest) returns (ReceiveResponse);
+  rpc Register (RegisterRequest) returns (RegisterResponse);
+  rpc Login (LoginRequest) returns (LoginResponse);
+  rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
+  rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
+  rpc Subscribe (SubscribeRequest) returns (stream Message);
+  rpc MarkRead (MarkReadRequest) returns (MarkReadResponse);
+  rpc DeleteUnreadMessage (DeleteUnreadMessageRequest) returns (DeleteUnreadMessageResponse);
+  rpc ReceiveMessages (ReceiveMessagesRequest) returns (ReceiveMessagesResponse);
+  rpc DeleteAccount (DeleteAccountRequest) returns (DeleteAccountResponse);
+  rpc Logout (LogoutRequest) returns (LogoutResponse);
 }
 
 message RegisterRequest {
@@ -17,8 +19,7 @@ message RegisterRequest {
 }
 
 message RegisterResponse {
-  string status = 1;
-  string message = 2;
+  string message = 1;
 }
 
 message LoginRequest {
@@ -27,61 +28,63 @@ message LoginRequest {
 }
 
 message LoginResponse {
-  string status = 1;
-  string message = 2;
+  string message = 1;
+  int32 unread_messages = 2;
 }
 
-message LogoutRequest {
-  string username = 1;
-}
-
-message LogoutResponse {
-  string status = 1;
-  string message = 2;
-}
-
-message ListUsersRequest {
-  string prefix = 1;
-}
-
+message ListUsersRequest {}
 message ListUsersResponse {
-  string status = 1;
-  repeated string users = 2;
+  repeated string users = 1;
+}
+
+message SendMessageRequest {
+  string sender = 1;
+  string recipient = 2;
   string message = 3;
+}
+
+message SendMessageResponse {
+  string message_id = 1;
 }
 
 message SubscribeRequest {
   string username = 1;
 }
 
-message ChatMessage {
+message Message {
   string id = 1;
-  string from = 2;
-  string message = 3;
-  string status = 4;
-}
-
-message SendRequest {
-  string sender = 1;
-  string recipient = 2;
-  string message = 3;
-}
-
-message SendResponse {
-  string status = 1;
-  string message = 2;
-  string message_id = 3;
+  string sender = 2;
+  string recipient = 3;
+  string message = 4;
+  string status = 5;
 }
 
 message MarkReadRequest {
   string username = 1;
   string contact = 2;
-  int32 read_batch_num = 3;
+  int32 batch_num = 3;
 }
 
 message MarkReadResponse {
-  string status = 1;
-  string message = 2;
+  string message = 1;
+}
+
+message DeleteUnreadMessageRequest {
+  string sender = 1;
+  string recipient = 2;
+  string message_id = 3;
+}
+
+message DeleteUnreadMessageResponse {
+  string message = 1;
+}
+
+message ReceiveMessagesRequest {
+  string username = 1;
+}
+
+message ReceiveMessagesResponse {
+  repeated Message messages = 1;
 }
 
 message DeleteAccountRequest {
@@ -89,27 +92,13 @@ message DeleteAccountRequest {
 }
 
 message DeleteAccountResponse {
-  string status = 1;
-  string message = 2;
+  string message = 1;
 }
 
-message DeleteRequest {
-  string sender = 1;
-  string recipient = 2;
-  string message_id = 3;
-}
-
-message DeleteResponse {
-  string status = 1;
-  string message = 2;
-}
-
-message ReceiveRequest {
+message LogoutRequest {
   string username = 1;
 }
 
-message ReceiveResponse {
-  string status = 1;
-  repeated ChatMessage messages = 2;
-  string message = 3;
+message LogoutResponse {
+  string message = 1;
 }
