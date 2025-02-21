@@ -3,7 +3,6 @@ import hashlib
 import tkinter as tk
 from tkinter import messagebox, scrolledtext
 import threading
-import ast
 import chat_pb2
 import chat_pb2_grpc
 import sys
@@ -100,70 +99,6 @@ def check_version_number():
         print(f"Error: {e.details()}")
         return None
 
-def send_request(request_type, data):
-    """
-        Send a request to the server using a custom binary protocol.
-
-        Params:
-
-            request_type: integer that corresponds to a specific request to the server
-
-        Returns:
-
-            response.decode() or None: response from the server or None if there is error in connection to server
-    """
-        
-    try:
-        # Call the appropriate gRPC method based on request_type
-        if request_type == 1:  # Register
-            username, password = data.split('|', 1)
-            response = stub.Register(chat_pb2.RegisterRequest(username=username, password=password))
-            return response.message
-
-        elif request_type == 2:  # Login
-            username, password = data.split('|', 1)
-            response = stub.Login(chat_pb2.LoginRequest(username=username, password=password))
-            return response.message
-
-        elif request_type == 3:  # List Users
-            response = stub.ListUsers(chat_pb2.ListUsersRequest())
-            return str(response.users)  # Convert list to string for compatibility
-
-        elif request_type == 4:  # Send Message
-            sender, recipient, message = data.split('|', 2)
-            response = stub.SendMessage(chat_pb2.SendMessageRequest(sender=sender, recipient=recipient, message=message))
-            return f"success:{response.message_id}"
-
-        elif request_type == 6:  # Mark Messages as Read
-            username, contact, batch_num = data.split('|')
-            response = stub.MarkRead(chat_pb2.MarkReadRequest(username=username, contact=contact, batch_num=int(batch_num)))
-            return response.message
-
-        elif request_type == 7:  # Delete Unread Message
-            sender, recipient, message_id = data.split('|')
-            response = stub.DeleteUnreadMessage(chat_pb2.DeleteUnreadMessageRequest(sender=sender, recipient=recipient, message_id=message_id))
-            return f"success:{str(response.message)}"
-
-        elif request_type == 8:  # Load Conversations
-            response = stub.ReceiveMessages(chat_pb2.ReceiveMessagesRequest(username=data))
-            messages = [{'id': m.id, 'from': m.sender, 'message': m.message, 'status': m.status} for m in response.messages]
-            return f"success:{str(messages)}"  # Convert list of messages to string
-
-        elif request_type == 9:  # Delete Account
-            response = stub.DeleteAccount(chat_pb2.DeleteAccountRequest(username=data))
-            return response.message
-
-        elif request_type == 10:  # Logout
-            response = stub.Logout(chat_pb2.LogoutRequest(username=data))
-            return f"success:{str(response.message)}"
-
-        else:
-            return "error: Unknown request type"
-
-    except grpc.RpcError as e:
-        return f"error: {e.details()}"
-
-
 def update_username_suggestions(event, entry, entry_var):
     """
         Update the dropdown options for username based on user input.
@@ -183,10 +118,9 @@ def update_username_suggestions(event, entry, entry_var):
     typed = entry_var.get().lower()
     
     try:
-        username_options = ast.literal_eval(send_request(3, "empty"))  # Ensure valid list
-        if not isinstance(username_options, list):  # Extra safety check
-            username_options = []
-    except (SyntaxError, ValueError):
+        response = stub.ListUsers(chat_pb2.ListUsersRequest())
+        username_options = list(response.users)
+    except Exception:
         username_options = []  # Handle bad responses safely
 
     if typed == "":
@@ -213,7 +147,7 @@ def login():
     if not username or not password:
         messagebox.showwarning("Input Error", "Username and password cannot be empty.")
         return
-    response = send_request(2, f"{username}|{hash_password(password)}")
+    response = stub.Login(chat_pb2.LoginRequest(username=username, password=hash_password(password))).message
     if response and response.startswith("success"):
         current_user = username
         login_frame.pack_forget()
@@ -246,7 +180,7 @@ def register():
     if not username or not password:
         messagebox.showwarning("Input Error", "Username and password cannot be empty.")
         return
-    response = send_request(1, f"{username}|{hash_password(password)}")
+    response = stub.Register(chat_pb2.RegisterRequest(username=username, password=hash_password(password))).message
     if response and response.startswith("success"):
         messagebox.showinfo("Success", response)
     else:
@@ -293,16 +227,16 @@ def load_conversations():
 
             None
     """
-    response = send_request(8, current_user)
-    if response and response.startswith("success"):
-        messages = ast.literal_eval(response.split(":", 1)[1]) #list of dict of messages
+    response = stub.ReceiveMessages(chat_pb2.ReceiveMessagesRequest(username=current_user))
+    messages = [{'id': m.id, 'from': m.sender, 'message': m.message, 'status': m.status} for m in response.messages]
+    if response and response.status == "success":
         if len(messages) != 0:
           for msg in messages:
             sender = msg["from"]
             add_message(sender, msg)
           update_conversation_list()
     else:
-        messagebox.showerror("Error", response if response else "No response from server.")
+        messagebox.showerror("Error", response.status if response.status else "No response from server.")
 
 def update_conversation_list():
     """
@@ -390,16 +324,16 @@ def chat_window(contact):
             if not message:
                 return
             sender, recipient = current_user, contact
-            response = send_request(4, f"{sender}|{recipient}|{message}")
-            if response and response.startswith("success"):
-                msg_id = response.split(':', 1)[1] # msg_id
+            response = stub.SendMessage(chat_pb2.SendMessageRequest(sender=sender, recipient=recipient, message=message))
+            if response and response.status == "success":
+                msg_id = response.message_id
                 msg_obj = {"id": msg_id, "from": current_user, "message": message, "status": "unread"}
                 add_message(contact, msg_obj)
                 update_conversation_list()
                 update_chat_window(contact)
                 message_entry.delete(0, tk.END)
             else:
-                messagebox.showerror("Error", response if response else "No response from server.")
+                messagebox.showerror("Error", response.status if response.status else "No response from server.")
         else:
             messagebox.showerror("Error", "Cannot send a new message until all unread messages are read")
 
@@ -412,8 +346,8 @@ def chat_window(contact):
             if msg["from"]==current_user and msg["status"]=="unread":
                 if messagebox.askyesno("Delete", "Unsend this message? \n\n" + f"{msg['message']}"):
                     sender, recipient, message_id = current_user, contact, msg["id"]
-                    response = send_request(7, f"{sender}|{recipient}|{message_id}")
-                    if response and response.startswith("success"):
+                    response = stub.DeleteUnreadMessage(chat_pb2.DeleteUnreadMessageRequest(sender=sender, recipient=recipient, message_id=message_id))
+                    if response and response.status == "success":
                         for m in conversations[contact]:
                             if m["id"] == msg["id"]:
                                 m["status"] = "deleted"
@@ -421,7 +355,7 @@ def chat_window(contact):
                         update_chat_window(contact)
                         update_conversation_list()
                     else:
-                        messagebox.showerror("Error", response if response else "No response from server.")
+                        messagebox.showerror("Error", response.message if response.message else "No response from server.")
 
     def save_undelivered():
         undelivered[contact] = message_entry.get().strip()
@@ -431,7 +365,7 @@ def chat_window(contact):
         nonlocal read_batch_num, unread_counter
         read_batch_num = int(read_batch_num_new.get())
         unread_counter = 0
-        send_request(6, f"{current_user}|{contact}|{read_batch_num}")
+        stub.MarkRead(chat_pb2.MarkReadRequest(username=current_user, contact=contact, batch_num=read_batch_num))
 
     # Chat_window setup
     if contact in chat_windows:
@@ -518,7 +452,7 @@ def update_chat_window(contact):
     if contact in chat_windows and chat_windows[contact].winfo_exists():
         # Only mark as read messages from this specific contact.
         if any(m["from"]==contact and m["status"]=="unread" for m in conversations.get(contact, [])):
-            send_request(6, f"{current_user}|{contact}|0")
+            stub.MarkRead(chat_pb2.MarkReadRequest(username=current_user, contact=contact, batch_num=0))
             for m in conversations.get(contact, []):
                 if m["from"] == contact and m["status"] == "unread":
                     m["status"] = "read"
@@ -562,7 +496,8 @@ def start_new_conversation():
         return
 
     # Check if the recipient exists.
-    users_list = ast.literal_eval(send_request(3, "empty"))
+    response = stub.ListUsers(chat_pb2.ListUsersRequest())
+    users_list = list(response.users)
     if recipient not in users_list:
         messagebox.showwarning("Input Error", f"User '{recipient}' does not exist.")
         return
@@ -587,7 +522,7 @@ def delete_account():
             None
     """
     if messagebox.askyesno("Confirm", "Delete your account?"):
-        response = send_request(9, current_user)
+        response = stub.DeleteAccount(chat_pb2.DeleteAccountRequest(username=current_user)).message
         if response and response.startswith("success"):
             messagebox.showinfo("Account Deleted", response)
             conversations.clear()
@@ -612,7 +547,7 @@ def logout():
     """
     global current_user, subscription_active, conversations, chat_windows
     if current_user:
-        response = send_request(10, current_user)
+        response = stub.Logout(chat_pb2.LogoutRequest(username=current_user)).message
         if response.startswith("success"):
             current_user = None
             subscription_active = False
@@ -650,7 +585,8 @@ def run_gui():
     tk.Label(login_frame, text="Username:").pack()
 
     try:
-        username_options = ast.literal_eval(send_request(3, "empty"))
+        response = stub.ListUsers(chat_pb2.ListUsersRequest())
+        username_options = list(response.users)
     except Exception as e:
         print(f"Error: {e}")
         return 
