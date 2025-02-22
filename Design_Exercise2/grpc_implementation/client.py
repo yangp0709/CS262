@@ -143,7 +143,7 @@ def login():
 
             None
     """
-    global current_user
+    global current_user, subscription_active
     username = username_entry.get().strip()
     password = password_entry.get().strip()
     if not username or not password:
