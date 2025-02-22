@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 service ChatService {
+  rpc CheckVersion(Version) returns (VersionResponse);
   rpc Register (RegisterRequest) returns (RegisterResponse);
   rpc Login (LoginRequest) returns (LoginResponse);
   rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
@@ -11,6 +12,15 @@ service ChatService {
   rpc ReceiveMessages (ReceiveMessagesRequest) returns (ReceiveMessagesResponse);
   rpc DeleteAccount (DeleteAccountRequest) returns (DeleteAccountResponse);
   rpc Logout (LogoutRequest) returns (LogoutResponse);
+}
+
+message Version {
+  string version = 1;
+}
+
+message VersionResponse {
+  bool success = 1;
+  string message = 2;
 }
 
 message RegisterRequest {

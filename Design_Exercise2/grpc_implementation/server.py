@@ -30,6 +30,8 @@ active_users_lock = threading.Lock()
 subscribers = {}  # {username: {"cond": threading.Condition(), "queue": []}}
 subscribers_lock = threading.Lock()
 
+SERVER_VERSION = "1.0.0"
+
 def handle_exit():
     print("[INFO] Shutting down server gracefully...")
     users.clear()
@@ -40,6 +42,16 @@ def handle_exit():
 atexit.register(handle_exit)
 
 class ChatService(chat_pb2_grpc.ChatServiceServicer):
+    def CheckVersion(self, request, context):
+        print(f"Client version: {request.version}")
+        if request.version != SERVER_VERSION:
+            print("[DISCONNECTED] due to version mismatch")
+            return chat_pb2.VersionResponse(
+                success=False,
+                message=f"Version mismatch. Server: {SERVER_VERSION}, Client: {request.version}"
+            )
+        return chat_pb2.VersionResponse(success=True, message="success: Version matched")
+    
     def Register(self, request, context):
         username, password = request.username, request.password
         if username in users:

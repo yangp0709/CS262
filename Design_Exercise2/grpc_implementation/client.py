@@ -94,6 +94,8 @@ def check_version_number():
        if not response.success:
            print(f"Error: {response.message}") 
            return None
+       
+       print(f"Successfully connected to server at {SERVER_HOST}:{SERVER_PORT} {response.message}")
        return True
     except grpc.RpcError as e:
         print(f"Error: {e.details()}")
@@ -578,6 +580,9 @@ def run_gui():
 
             None
     """
+
+    if not check_version_number():
+        sys.exit(1)
     root.title("Chat Application")
     root.geometry("400x500")
 
