@@ -86,7 +86,7 @@ def check_version_number():
 
         Returns:
 
-            conn or None: client socket if success, None if error or Exception
+            True or None: True if success, None if error
     """
     # Check connection
     try: 

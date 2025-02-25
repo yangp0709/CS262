@@ -43,6 +43,9 @@ atexit.register(handle_exit)
 
 class ChatService(chat_pb2_grpc.ChatServiceServicer):
     def CheckVersion(self, request, context):
+        """
+            Checks that version number matches between client and server
+        """
         print(f"Client version: {request.version}")
         if request.version != SERVER_VERSION:
             print("[DISCONNECTED] due to version mismatch")
@@ -53,6 +56,9 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         return chat_pb2.VersionResponse(success=True, message="success: Version matched")
     
     def Register(self, request, context):
+        """
+            Handle registration request
+        """
         username, password = request.username, request.password
         if username in users:
             return chat_pb2.RegisterResponse(message="error: This username is unavailable")
@@ -60,6 +66,9 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         return chat_pb2.RegisterResponse(message="success: Account created")
 
     def Login(self, request, context):
+        """
+            Handle login request
+        """
         username, password = request.username, request.password
         if username in users and users[username]["password"] == password and not users[username].get("deleted", False):
             with active_users_lock:
@@ -71,10 +80,16 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         return chat_pb2.LoginResponse(message="error: Invalid username or password", unread_messages=0)
 
     def ListUsers(self, request, context):
+        """
+            Returns a list of active users
+        """
         user_list = [u for u, data in users.items() if not data.get("deleted", False)]
         return chat_pb2.ListUsersResponse(users=user_list)
 
     def SendMessage(self, request, context):
+        """
+            Handle sending a message
+        """
         sender, recipient, message_text = request.sender, request.recipient, request.message
         if recipient not in users or users[recipient].get("deleted", False):
             return chat_pb2.SendMessageResponse(status="error: Recipient not found or deleted", message_id="")
@@ -94,6 +109,9 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         return chat_pb2.SendMessageResponse(status="success", message_id=msg["id"])
 
     def Subscribe(self, request, context):
+        """
+            Handles subscription request
+        """
         username = request.username
         if username not in users:
             context.set_details("User not found")
@@ -116,6 +134,9 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             )
 
     def MarkRead(self, request, context):
+        """
+            Handle a mark read request
+        """
         username, contact, batch_num = request.username, request.contact, request.batch_num
         if username not in users:
             context.set_details("User not found")
@@ -131,6 +152,9 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         return chat_pb2.MarkReadResponse(message=f"Marked {count} messages as read.")
 
     def DeleteUnreadMessage(self, request, context):
+        """
+            Handle delete unread message request
+        """
         sender, recipient, message_id = request.sender, request.recipient, request.message_id
         if recipient not in users:
             return chat_pb2.DeleteUnreadMessageResponse(status="error", message="Recipient not found")
@@ -156,6 +180,9 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         return chat_pb2.DeleteUnreadMessageResponse(status="success", message="Message deleted.")
 
     def ReceiveMessages(self, request, context):
+        """
+            Handle receive message request
+        """
         username = request.username
         if username not in users:
             return chat_pb2.ReceiveMessagesResponse(status="error: User not found", messages=[])
@@ -170,6 +197,9 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         return chat_pb2.ReceiveMessagesResponse(status="success", messages=msgs)
 
     def DeleteAccount(self, request, context):
+        """
+            Handle delete account request
+        """
         username = request.username
         if username in users and not users[username].get("deleted", False):
             users[username]["deleted"] = True
