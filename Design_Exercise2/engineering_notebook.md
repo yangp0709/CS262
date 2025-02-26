@@ -48,6 +48,19 @@ For maintainability and rapid development, gRPC typically simplifies many tasks 
 - **Text-based**: Tends to be more verbose than Protobuf, increasing payload sizes slightly.  
 - Raw sockets, however, skip some overhead from HTTP/2 frames that gRPC needs. Still, overall JSON typically is larger on average than a Protobuf-encoded payload.
 
+We can see these results experimentally. 
+
+In Figure 1 and 2, we can see that the gRPC's message size and response size are significantly smaller than JSON's, but binary encoding used in the custom protocol still is the most efficient in size. In Figure 3, we can also see that gRPC is significantly faster than JSON protocol, especially as the number of characters increases, but the custom protocol that uses binary encoding is still faster than using gRPC.
+
+Figure 1:
+![](experiment/message_size_plot.png)
+
+Figure 2:
+![](experiment/response_size_plot.png)
+
+Figure 3:
+![](experiment/time_taken_plot.png)
+
 **Summary**  
 Protobuf is often smaller and faster, while JSON is easier for humans to read and debug. For a basic chat app, both approaches are probably "fast enough," but gRPC can be more efficient at scale.
 
