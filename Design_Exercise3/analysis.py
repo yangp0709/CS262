@@ -29,11 +29,19 @@ def parse_log_file(filepath):
                     clock = int(match.group(2))
                     q_match = queue_pattern.search(line)
                     queue_length = int(q_match.group(1)) if q_match else None
+                    event_type = None
+                    if "RECEIVE" in line:
+                        event_type = "RECEIVE"
+                    elif "SEND" in line:
+                        event_type = "SEND"
+                    elif "INTERNAL" in line:
+                        event_type = "INTERNAL"
                     events.append({
                         "time": system_time,
                         "clock": clock,
                         "queue": queue_length,
-                        "line": line
+                        "line": line,
+                        "event_type": event_type
                     })
     return tick_rate, events
 
@@ -98,6 +106,17 @@ def analyze_queue_stats(events):
         max_queue = 0
     return max_queue
 
+def count_event_types(events):
+    send_internal = 0
+    receive = 0
+    for ev in events:
+        etype = ev.get("event_type")
+        if etype in ["SEND", "INTERNAL"]:
+            send_internal += 1
+        elif etype == "RECEIVE":
+            receive += 1
+    return send_internal, receive
+
 
 def main():
     sim_dirs = [d for d in os.listdir(".") if d.startswith("simulation_") and os.path.isdir(d)]
@@ -108,12 +127,16 @@ def main():
         
         for vm_id, data in sorted(vm_data.items()):
             max_queue = analyze_queue_stats(data["events"])
+            send_internal, receive = count_event_types(data["events"])
             print(f"  VM {vm_id}:")
             print(f"    Tick Rate: {data['tick_rate']}")
+            print(f"    SEND + INTERNAL events: {send_internal}")
+            print(f"    RECEIVE events: {receive}")
             print(f"    Total events: {data['num_events']}")
             print(f"    Average clock jump: {data['avg_jump']:.2f}")
             print(f"    Maximum clock jump: {data['max_jump']}")
             print(f"    Maximum queue length: {max_queue}")
+            
 
         if avg_drift is not None:
             print(f"  Average cross-VM drift (for events <0.1 sec apart): {avg_drift:.2f}")
