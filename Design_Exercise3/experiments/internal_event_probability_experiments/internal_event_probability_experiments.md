@@ -1,6 +1,6 @@
 # Analysis of Internal Event Probability Experiments
 
-Each experiment was run with a different probability for a VM to choose an internal event when no messages are pending. 
+Each experiment was run with a different probability for a VM to choose an internal event when no messages are pending. These experiments are ran for 1 minute and have the average stats across 5 simulations for each experiment.
 
 **Clarification:**  
 - When a VM has a message in its queue, it always logs a **receive** event.  
