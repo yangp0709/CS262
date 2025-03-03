@@ -1,0 +1,150 @@
+Analysis for simulation_1:
+  VM 1:
+    Tick Rate: 1
+    SEND + INTERNAL events: 1
+    SEND events proportion of SEND + INTERNAL events: 0.0
+    RECEIVE events: 59
+    Total events: 60
+    Average clock jump: 4.03
+    Maximum clock jump: 16
+    Maximum queue length: 24
+  VM 2:
+    Tick Rate: 3
+    SEND + INTERNAL events: 138
+    SEND events proportion of SEND + INTERNAL events: 0.3695652173913043
+    RECEIVE events: 52
+    Total events: 190
+    Average clock jump: 1.64
+    Maximum clock jump: 12
+    Maximum queue length: 2
+  VM 3:
+    Tick Rate: 5
+    SEND + INTERNAL events: 302
+    SEND events proportion of SEND + INTERNAL events: 0.37748344370860926
+    RECEIVE events: 26
+    Total events: 328
+    Average clock jump: 1.00
+    Maximum clock jump: 1
+    Maximum queue length: 1
+  Average cross-VM drift (for events <0.1 sec apart): 19.52
+----------------------------------------
+Analysis for simulation_2:
+  VM 1:
+    Tick Rate: 1
+    SEND + INTERNAL events: 1
+    SEND events proportion of SEND + INTERNAL events: 0.0
+    RECEIVE events: 59
+    Total events: 60
+    Average clock jump: 3.81
+    Maximum clock jump: 12
+    Maximum queue length: 23
+  VM 2:
+    Tick Rate: 3
+    SEND + INTERNAL events: 140
+    SEND events proportion of SEND + INTERNAL events: 0.34285714285714286
+    RECEIVE events: 51
+    Total events: 191
+    Average clock jump: 1.70
+    Maximum clock jump: 9
+    Maximum queue length: 2
+  VM 3:
+    Tick Rate: 5
+    SEND + INTERNAL events: 311
+    SEND events proportion of SEND + INTERNAL events: 0.34726688102893893
+    RECEIVE events: 19
+    Total events: 330
+    Average clock jump: 1.00
+    Maximum clock jump: 1
+    Maximum queue length: 1
+  Average cross-VM drift (for events <0.1 sec apart): 21.65
+----------------------------------------
+Analysis for simulation_3:
+  VM 1:
+    Tick Rate: 1
+    SEND + INTERNAL events: 3
+    SEND events proportion of SEND + INTERNAL events: 1.0
+    RECEIVE events: 57
+    Total events: 60
+    Average clock jump: 3.63
+    Maximum clock jump: 18
+    Maximum queue length: 28
+  VM 2:
+    Tick Rate: 3
+    SEND + INTERNAL events: 131
+    SEND events proportion of SEND + INTERNAL events: 0.35877862595419846
+    RECEIVE events: 63
+    Total events: 194
+    Average clock jump: 1.69
+    Maximum clock jump: 10
+    Maximum queue length: 4
+  VM 3:
+    Tick Rate: 5
+    SEND + INTERNAL events: 308
+    SEND events proportion of SEND + INTERNAL events: 0.41233766233766234
+    RECEIVE events: 25
+    Total events: 333
+    Average clock jump: 1.00
+    Maximum clock jump: 1
+    Maximum queue length: 1
+  Average cross-VM drift (for events <0.1 sec apart): 30.27
+----------------------------------------
+Analysis for simulation_4:
+  VM 1:
+    Tick Rate: 1
+    SEND + INTERNAL events: 3
+    SEND events proportion of SEND + INTERNAL events: 0.6666666666666666
+    RECEIVE events: 58
+    Total events: 61
+    Average clock jump: 4.42
+    Maximum clock jump: 15
+    Maximum queue length: 17
+  VM 2:
+    Tick Rate: 3
+    SEND + INTERNAL events: 110
+    SEND events proportion of SEND + INTERNAL events: 0.22727272727272727
+    RECEIVE events: 73
+    Total events: 183
+    Average clock jump: 1.82
+    Maximum clock jump: 11
+    Maximum queue length: 3
+  VM 3:
+    Tick Rate: 5
+    SEND + INTERNAL events: 325
+    SEND events proportion of SEND + INTERNAL events: 0.4307692307692308
+    RECEIVE events: 14
+    Total events: 339
+    Average clock jump: 1.00
+    Maximum clock jump: 1
+    Maximum queue length: 1
+  Average cross-VM drift (for events <0.1 sec apart): 17.02
+----------------------------------------
+Analysis for simulation_5:
+  VM 1:
+    Tick Rate: 1
+    SEND + INTERNAL events: 1
+    SEND events proportion of SEND + INTERNAL events: 0.0
+    RECEIVE events: 59
+    Total events: 60
+    Average clock jump: 3.85
+    Maximum clock jump: 16
+    Maximum queue length: 27
+  VM 2:
+    Tick Rate: 3
+    SEND + INTERNAL events: 125
+    SEND events proportion of SEND + INTERNAL events: 0.4
+    RECEIVE events: 68
+    Total events: 193
+    Average clock jump: 1.70
+    Maximum clock jump: 9
+    Maximum queue length: 3
+  VM 3:
+    Tick Rate: 5
+    SEND + INTERNAL events: 307
+    SEND events proportion of SEND + INTERNAL events: 0.41368078175895767
+    RECEIVE events: 22
+    Total events: 329
+    Average clock jump: 1.01
+    Maximum clock jump: 3
+    Maximum queue length: 1
+  Average cross-VM drift (for events <0.1 sec apart): 27.29
+----------------------------------------

@@ -3,14 +3,16 @@ import random
 import time
 import json
 import os
+import argparse
 
 class VirtualMachine:
-    def __init__(self, vm_id, port, neighbors, sim_folder):
+    def __init__(self, vm_id, port, neighbors, sim_folder, tick_rate_override = None, events_max_random_number = 10):
         self.vm_id = vm_id
         self.port = port
         self.neighbors = neighbors  # dict of neighbor_id: port
         self.logical_clock = 0
-        self.tick_rate = random.randint(1, 6)
+        self.tick_rate = tick_rate_override if tick_rate_override is not None else random.randint(1, 6)
+        self.events_max_random_number = events_max_random_number
         self.msg_queue = asyncio.Queue()
         self.server = None
         self.server_task = None
@@ -82,7 +84,7 @@ class VirtualMachine:
                     self.log_file.write(log_entry)
                     self.log_file.flush()
                 else:
-                    event = random.randint(1, 10)
+                    event = random.randint(1, self.events_max_random_number)
                     if event == 1:
                         self.log_file.write(('EVENT 1\n')) #TODO DELETE
                         # Send to one neighbor (pick first in list)
@@ -119,7 +121,7 @@ class VirtualMachine:
         self.log_file.write(log_entry)
         self.log_file.flush()
 
-async def run_experiment(exp_num):
+async def run_experiment(exp_num, manual=False, clock_speeds=None, events_max_random_number=10):
     sim_folder = f"simulation_{exp_num}"
     if not os.path.exists(sim_folder):
         os.makedirs(sim_folder)
@@ -136,7 +138,9 @@ async def run_experiment(exp_num):
     # Create VMs with neighbors.
     for vm_id in ports:
         neighbors = {other_id: port for other_id, port in ports.items() if other_id != vm_id}
-        machines[vm_id] = VirtualMachine(vm_id, ports[vm_id], neighbors, sim_folder)
+        tick_rate_override = clock_speeds[vm_id - 1] if (manual and clock_speeds) else None
+        print("events_max_random_number", events_max_random_number)
+        machines[vm_id] = VirtualMachine(vm_id, ports[vm_id], neighbors, sim_folder, tick_rate_override, events_max_random_number)
 
     # Start servers and connect to neighbors.
     await asyncio.gather(*(vm.start_server() for vm in machines.values()))
@@ -173,14 +177,38 @@ async def run_experiment(exp_num):
         vm.log_file.close()
 
 
-async def main():
+async def main(manual=False, clock_speeds=None, events_max_random_number=10):
     for i in range(1, 6):
-        await run_experiment(i)
+        await run_experiment(i, manual, clock_speeds, events_max_random_number)
         await asyncio.sleep(5)
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Scale Clocks Simulation")
+    parser.add_argument("--manual", "--m", action="store_true",
+                        help="Enable manual mode to specify VM clock speeds and internal event probability")
+    parser.add_argument("--clock_speeds", "--c", type=str, default="",
+                        help="Comma-separated list of three clock speeds (e.g., '1,3,5')")
+    parser.add_argument("--events_max_random_number", "--max", type=int, default=10,
+                        help="The maximum random number for events, default is randint(1, 10)")
+    args = parser.parse_args()
+
+    manual = args.manual
+    clock_speeds = None
+    if manual:
+        if args.clock_speeds:
+            try:
+                clock_speeds = [int(x.strip()) for x in args.clock_speeds.split(",")]
+                if len(clock_speeds) != 3:
+                    raise ValueError("Please provide exactly three clock speeds.")
+            except Exception as e:
+                print("Error parsing clock speeds:", e)
+                exit(1)
+        else:
+            print("Manual mode enabled but no clock speeds provided. Exiting.")
+            exit(1)
+
     try:
-        asyncio.run(main())
+        asyncio.run(main(manual, clock_speeds, args.events_max_random_number))
     except KeyboardInterrupt:
         print("Shutting down...")
             

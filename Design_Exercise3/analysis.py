@@ -1,6 +1,7 @@
 import os
 import re
 import statistics
+import sys
 
 event_pattern = re.compile(r"system time ([0-9]+\.[0-9]+).*logical clock (\d+)")
 queue_pattern = re.compile(r"queue length (\d+)")
@@ -109,40 +110,66 @@ def analyze_queue_stats(events):
 def count_event_types(events):
     send_internal = 0
     receive = 0
+    send = 0
     for ev in events:
         etype = ev.get("event_type")
         if etype in ["SEND", "INTERNAL"]:
             send_internal += 1
+            if etype == "SEND":
+                send += 1
         elif etype == "RECEIVE":
             receive += 1
-    return send_internal, receive
+    send_proportion = send / send_internal if send_internal > 0 else 0
+    return send_internal, receive, send_proportion
 
+# Helper class to write output to multiple streams (console and file)
+class Tee:
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, message):
+        for s in self.streams:
+            s.write(message)
+
+    def flush(self):
+        for s in self.streams:
+            s.flush()
 
 def main():
     sim_dirs = [d for d in os.listdir(".") if d.startswith("simulation_") and os.path.isdir(d)]
     sim_dirs.sort()
-    for sim in sim_dirs:
-        print(f"Analysis for {sim}:")
-        vm_data, avg_drift = analyze_experiment(sim)
+    
+    # Open the file to write the CLI output
+    with open("analysis.txt", "w") as f:
+        original_stdout = sys.stdout  # Save the original stdout
+        sys.stdout = Tee(original_stdout, f)  # Redirect stdout to both console and file
         
-        for vm_id, data in sorted(vm_data.items()):
-            max_queue = analyze_queue_stats(data["events"])
-            send_internal, receive = count_event_types(data["events"])
-            print(f"  VM {vm_id}:")
-            print(f"    Tick Rate: {data['tick_rate']}")
-            print(f"    SEND + INTERNAL events: {send_internal}")
-            print(f"    RECEIVE events: {receive}")
-            print(f"    Total events: {data['num_events']}")
-            print(f"    Average clock jump: {data['avg_jump']:.2f}")
-            print(f"    Maximum clock jump: {data['max_jump']}")
-            print(f"    Maximum queue length: {max_queue}")
-            
-
-        if avg_drift is not None:
-            print(f"  Average cross-VM drift (for events <0.1 sec apart): {avg_drift:.2f}")
-        else:
-            print("  Not enough close events to compute cross-VM drift.")
-        print("-" * 40)
+        try:
+            for sim in sim_dirs:
+                print(f"Analysis for {sim}:")
+                vm_data, avg_drift = analyze_experiment(sim)
+                
+                for vm_id, data in sorted(vm_data.items()):
+                    max_queue = analyze_queue_stats(data["events"])
+                    send_internal, receive, send_proportion = count_event_types(data["events"])
+                    print(f"  VM {vm_id}:")
+                    print(f"    Tick Rate: {data['tick_rate']}")
+                    print(f"    SEND + INTERNAL events: {send_internal}")
+                    print(f"    SEND events proportion of SEND + INTERNAL events: {send_proportion}")
+                    print(f"    RECEIVE events: {receive}")
+                    print(f"    Total events: {data['num_events']}")
+                    print(f"    Average clock jump: {data['avg_jump']:.2f}")
+                    print(f"    Maximum clock jump: {data['max_jump']}")
+                    print(f"    Maximum queue length: {max_queue}")
+                    
+                if avg_drift is not None:
+                    print(f"  Average cross-VM drift (for events <0.1 sec apart): {avg_drift:.2f}")
+                else:
+                    print("  Not enough close events to compute cross-VM drift.")
+                print("-" * 40)
+        finally:
+            sys.stdout = original_stdout  # Restore original stdout
 
 if __name__ == "__main__":
     main()
+
