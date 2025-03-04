@@ -49,7 +49,7 @@ Below is a analysis of each experiment based on the clock‐rate settings. Each 
   - **VM 1 (tick 1):** 21 SEND + INTERNAL vs. 40 RECEIVE events  
   - **VM 2 (tick 1):** 24 vs. 38  
   - **VM 3 (tick 3):** 190 vs. 7  
-  Here the slow VMs generate very few active events while receiving many messages (ratio less than 1:1), causing moderate queue buildups and forcing larger clock jumps when they process their backlog. In contrast, the fast VM sends actively (190 vs. only 7 receives), keeping its clock stable.
+  Here the slow VMs generate very few active events while receiving many messages (ratio less than 1:1), causing moderate queue buildups and forcing larger clock jumps when they process their backlog. In contrast, the fast VM sends actively (190 vs. only 7 receives) since it rarely receives messages due to the other two machines always reading and never sending. This keeps the fast VM's clock stable.
   
 *Conclusion:* In this mixed setting, the disparity is clear. The slow machines lag behind—accumulating a backlog that forces larger clock jumps—while the faster machine, generating many events, maintains minimal clock variation.
 
@@ -65,7 +65,7 @@ Below is a analysis of each experiment based on the clock‐rate settings. Each 
   - **VM 1 (tick 1):** 2 SEND + INTERNAL vs. 58 RECEIVE events  
   - **VM 2 (tick 1):** 1 vs. 59  
   - **VM 3 (tick 6):** 397 vs. 0  
-  The fast VM is extremely active, generating 397 events and sending no messages in return, while the slow VMs are flooded with 58–59 RECEIVE events but generate almost no active events. This dramatic imbalance causes the slow VMs to have very long queues and, when they do process the backlog, to experience huge clock jumps.
+  The fast VM is extremely active, generating 397 events and receiving no messages in return, while the slow VMs are flooded with 58–59 RECEIVE events but generate almost no active events. This dramatic imbalance causes the slow VMs to have very long queues and, when they do process the backlog, to experience huge clock jumps.
 
   
 *Conclusion:* This “Mixed Extremes” scenario starkly illustrates how a high-speed machine can inundate slower ones. The imbalance between generated and received events in slow VMs leads to large clock adjustments and significant queue buildup, while the fast VM remains efficient and steady.
