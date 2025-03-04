@@ -20,6 +20,11 @@ python analysis.py
 ```
 to analyze the results of the simulation. This will display the analysis in an analysis.txt and the terminal.
 
+### To run tests for scale models and logical clocks implementation, run
+```
+pytest tests/
+```
+
 ## Experiments
 
 experiments contains experiment results for different clock rate combinations and internal event probabilities. The name of the .txt for clock rate experiments is the combination of clock rates used. The name of the .txt for internal event probabilities is the probability of an internal event relative to event.
