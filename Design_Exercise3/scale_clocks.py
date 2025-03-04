@@ -111,7 +111,10 @@ class VirtualMachine:
     async def send_message(self, neighbor_id):
         writer = self.neighbor_writers.get(neighbor_id)
         if writer is None:
-            return
+            raise ValueError(
+                f"VM {self.vm_id} attempted to send a message to neighbor {neighbor_id}, "
+                "but no connection/writer is available."
+            )
         self.logical_clock += 1
         msg = {"sender": self.vm_id, "clock": self.logical_clock}
         data = json.dumps(msg) + "\n"
