@@ -39,7 +39,7 @@ Below is an analysis for each internal event probability setting, followed by a 
   - VM 3: Minimal (1–3)
 
 - **Observations:**  
-  With a 25% internal event probability, the slow VM (tick 1) processes few events relative to the faster VMs. Its low rate of choosing send/internal (when idle) combined with many receive events leads to moderate clock jumps but a very large message backlog. The medium and fast VMs remain efficient with nearly constant clock increments. With the lowest internal event probability of all experiments, the slow VM has the smallest average clock jump of all experiments, as a lower internal event probability allows more sends, giving the slow VM more chances to catch up to faster neighboring VMs.
+  With a 25% internal event probability, the slow VM (tick 1) processes few events relative to the faster VMs. Its low rate of choosing send/internal (when idle) combined with many receive events leads to moderate clock jumps but a very large message backlog. The medium and fast VMs remain efficient with nearly constant clock increments. With the lowest internal event probability of all experiments, the slow VM has the smallest average clock jump of all experiments, as a lower internal event probability allows more sends, giving the slow VM more chances to receive messages from other machines and catch up to faster neighboring VMs.
 
 ---
 
