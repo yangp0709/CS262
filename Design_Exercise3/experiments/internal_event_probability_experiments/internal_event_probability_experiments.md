@@ -16,7 +16,7 @@ Below is an analysis for each internal event probability setting, followed by a 
 
 ---
 
-## 25% Internal Event Probability (File: **25.txt** :contentReference[oaicite:0]{index=0})
+## 25% Internal Event Probability (**25.txt**)
 
 - **Total Events:**  
   - VM 1 (tick 1): ~60–61 events  
@@ -39,11 +39,11 @@ Below is an analysis for each internal event probability setting, followed by a 
   - VM 3: Minimal (1–3)
 
 - **Observations:**  
-  With a 25% internal event probability, the slow VM (tick 1) processes few events relative to the faster VMs. Its low rate of choosing send/internal (when idle) combined with many receive events leads to moderate clock jumps but a very large message backlog. The medium and fast VMs remain efficient with nearly constant clock increments.
+  With a 25% internal event probability, the slow VM (tick 1) processes few events relative to the faster VMs. Its low rate of choosing send/internal (when idle) combined with many receive events leads to moderate clock jumps but a very large message backlog. The medium and fast VMs remain efficient with nearly constant clock increments. With the lowest internal event probability of all experiments, the slow VM has the smallest average clock jump of all experiments, as a lower internal event probability allows more sends, giving the slow VM more chances to catch up to faster neighboring VMs.
 
 ---
 
-## 40% Internal Event Probability (File: **40.txt** :contentReference[oaicite:1]{index=1})
+## 40% Internal Event Probability (**40.txt**)
 
 - **Total Events:**  
   - VM 1: ~60 events  
@@ -66,11 +66,11 @@ Below is an analysis for each internal event probability setting, followed by a 
   - VM 3: Minimal (1–2)
 
 - **Observations:**  
-  Increasing the internal event probability to 40% slightly raises the average clock jump for the slow VM while keeping its total events nearly constant. The maximum queue lengths remain high for VM 1 but similar to the 25% case. VM 2 and VM 3 continue to exhibit steady and efficient processing.
+  Increasing the internal event probability to 40% slightly raises the average clock jump for the slow VM while keeping its total events nearly constant. The maximum queue lengths remain high for VM 1 but similar to the 25% case. VM 2 and VM 3 continue to exhibit steady and efficient processing. 
 
 ---
 
-## 50% Internal Event Probability (File: **50.txt** :contentReference[oaicite:2]{index=2})
+## 50% Internal Event Probability (**50.txt**)
 
 - **Total Events:**  
   - VM 1: ~60–61 events  
@@ -93,11 +93,11 @@ Below is an analysis for each internal event probability setting, followed by a 
   - VM 3: Low (1–4)
 
 - **Observations:**  
-  At 50% internal probability, VM 1 shows a noticeable increase in its average clock jump compared to lower probabilities, suggesting it is choosing more internal events (when idle) and therefore accumulates a larger jump when processing a received message. The fast VM continues to be highly efficient, and queue lengths for VM 1 decrease slightly relative to the 25%–40% settings.
+  At 50% internal probability, VM 1 shows a noticeable increase in its average clock jump compared to lower probabilities. The fast VM continues to be highly efficient, and queue lengths for VM 1 decrease slightly relative to the 25%–40% settings.
 
 ---
 
-## 70% Internal Event Probability (File: **70.txt** :contentReference[oaicite:3]{index=3})
+## 70% Internal Event Probability (**70.txt**)
 
 - **Total Events:**  
   - VM 1: ~60 events  
@@ -120,11 +120,11 @@ Below is an analysis for each internal event probability setting, followed by a 
   - VM 3: Minimal (1)
 
 - **Observations:**  
-  With a 70% probability, the slow VM processes nearly the same number of total events, but its average and maximum clock jumps increase markedly. The reduction in maximum queue length for VM 1 suggests that when internal events are favored, it clears its message backlog more frequently even though each update is larger.
+  With a 70% probability, the slow VM processes nearly the same number of total events, but its average and maximum clock jumps increase markedly. The reduction in maximum queue length for VM 1 suggests that when internal events are favored, it clears its message backlog more frequently even though each clock update is larger.
 
 ---
 
-## 80% Internal Event Probability (File: **80.txt** :contentReference[oaicite:4]{index=4})
+## 80% Internal Event Probability (**80.txt**)
 
 - **Total Events:**  
   - VM 1: ~60 events  
@@ -147,7 +147,7 @@ Below is an analysis for each internal event probability setting, followed by a 
   - VM 3: Minimal (1–2)
 
 - **Observations:**  
-  At an 80% internal event probability, VM 1 exhibits the highest average and maximum clock jumps observed, indicating it is performing many internal events (when idle) before processing a receive event. However, its maximum queue lengths are very low, suggesting that the frequent internal processing prevents message accumulation. The medium and fast VMs continue to show steady performance.
+  At an 80% internal event probability, VM 1 exhibits the highest average and maximum clock jumps observed, indicating it is performing many internal events (when idle) before processing a receive event. With an increasing internal event probability, more internal events are performed by the faster VMs than the slower VMs, leading to a larger clock discrepancy between the fast and slow VMs. However, its maximum queue lengths are very low, suggesting that the frequent internal processing prevents message accumulation. The medium and fast VMs continue to show steady performance. 
 
 ---
 
@@ -166,14 +166,21 @@ Below is an analysis for each internal event probability setting, followed by a 
   The maximum clock jump for VM 1 increases considerably with higher internal event probabilities—from single-digit values at lower probabilities (8–10) to very high values (up to 28–32) at 80%. In contrast, VM 3’s maximum clock jump remains almost unaffected, and VM 2 shows only modest increases.
 
 - **Maximum Queue Length:**  
-  The slow VM (VM 1) experiences very high maximum queue lengths at lower internal event probabilities (up to 112 at 25%) but sees a dramatic reduction at higher probabilities (dropping to as low as 2–7 at 80%). This suggests that when a VM is more likely to choose an internal event (when idle), it processes its backlog more frequently, even though its clock jumps become larger. The medium and fast VMs maintain low queue lengths across all experiments.
-
-- **Cross-VM Drift:**  
-  The average cross-VM drift (the difference in logical clock values between nearly simultaneous events) tends to decrease as the internal event probability increases. Lower drift at high probabilities implies that although the slow VM’s clock jumps are larger, they help it catch up with the fast VMs more quickly, reducing the temporal gap for near-simultaneous events.
+  The slow VM (VM 1) experiences very high maximum queue lengths at lower internal event probabilities (up to 112 at 25%) but sees a dramatic reduction at higher probabilities (dropping to as low as 2–7 at 80%). This makes sense as when more send events are sent, the faster VMs will send more than the slow VMs and inundate the slow VM's message queues. The medium and fast VMs maintain low queue lengths across all experiments.
 
 - **Overall Trends:**  
   - **Slow VM (Tick 1):** Highly sensitive to the internal event probability, showing increased clock jumps and reduced queue lengths at higher probabilities.  
   - **Medium VM (Tick 3):** Exhibits minor variations, with average clock jumps remaining stable and consistently low queue lengths.  
   - **Fast VM (Tick 5):** Largely unaffected by changes in internal event probability, maintaining a steady event rate, constant minimal clock jumps, and very short queues.
+
+- **Main Conclusion about the Effect of Internal Event Probability**
+  - The internal event probability appears to be a balance between a lower avg clock jump or a smaller message queue buildup for the slower VMs in a network. 
+  
+  - **High Internal Event Probability = Higher Avg Clock Jumps and Less Message Buildup for slower VMs:** Higher clock rate VMs do more internal events than slower VMs, so, in our logical clock implementation, a higher internal event probability leads to a larger discrepancy between slow and fast VMs and a higher avg clock jump for the slow VM. However, with less messages sent, the slower VMs have significantly less build up of messages in their queue. 
+  
+  - **Low Internal Event Probability = Lower Avg Clock Jumps and More Message Buildup for slower VMs:** Lower internal event probability leads to more sends, which gives slower VMs more chances to catch up ot faster neighboring VMs and, consequently, a lower avg clock jump. However, the faster VMs send messages significantly more than the slower VMs, causing slow VM message queues to be filled significantly more. 
+
+  - **Cross-VM Drift:**  
+  The average cross-VM drift (the difference in logical clock values between nearly simultaneous events) tends to decrease as the internal event probability increases. Lower drift at high probabilities implies that although the slow VM’s clock jumps are larger, they help it catch up with the fast VMs more quickly, reducing the temporal gap for near-simultaneous events.
 
 ---
