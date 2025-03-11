@@ -17,25 +17,25 @@ class PersistentStore:
         self.lock = threading.Lock()
         if os.path.exists(self.filename):
             with open(self.filename, 'r') as f:
-                self.data = json.load(f)
+                self.users = json.load(f)
         else:
-            self.data = {}  # Structure: {username: {password: pwd, messages: [msg, ...]}
+            self.users = {}  # Structure: {username: {password: pwd, messages: [msg, ...]}
     
     def add_message(self, recipient, msg):
         with self.lock:
-            # if recipient not in self.data:
-            #     self.data[recipient]["messages"] = []
-            self.data[recipient]["messages"].append(msg)
+            # if recipient not in self.users:
+            #     self.users[recipient]["messages"] = []
+            self.users[recipient]["messages"].append(msg)
             self.save()
     
     def save(self):
         with self.lock:
             with open(self.filename, 'w') as f:
-                json.dump(self.data, f, indent=2)
+                json.dump(self.users, f, indent=2)
     
     # def get_all_messages(self):
     #     with self.lock:
-    #         return self.data
+    #         return self.users
 
 # -------------------------
 # Health Service: for simple pinging.
@@ -94,11 +94,19 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         self.peers = peers  # List of (peer_id, address)
         # Track peer health: once marked down, remains down forever.
         self.peer_status = {pid: True for pid, _ in peers}
+        self.active_users_lock = threading.Lock()
+        self.active_users = set()
+        self.subscribers_lock = threading.Lock()
+        self.subscribers = {}
+
 
     def CheckVersion(self, request, context):
         if request.version != SERVER_VERSION:
-            return chat_pb2.VersionResponse(success=False, message=f"Expected {SERVER_VERSION}")
-        return chat_pb2.VersionResponse(success=True, message="Version matched")
+            return chat_pb2.VersionResponse(
+                success=False, 
+                message=f"Version mismatch. Server: {SERVER_VERSION}, Client: {request.version}"
+            )
+        return chat_pb2.VersionResponse(success=True, message="success: Version matched")
     
     def Register(self, request, context):
         """
@@ -114,17 +122,47 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         self.store.save()
         return chat_pb2.RegisterResponse(message="success: Account created")
     
+    def Login(self, request, context):
+        """
+            Handle login request
+        """
+        username, password = request.username, request.password
+        user = self.store.users.get(username)
+        if user and user["password"] == password and not user.get("deleted", False):
+            with self.active_users_lock:
+                if username in self.active_users:
+                    return chat_pb2.LoginResponse(message="error: User already logged in", unread_messages=0)
+                self.active_users.add(username)
+            unread = sum(1 for m in user["messages"] if m["status"] == "unread")
+            return chat_pb2.LoginResponse(message=f"success: Logged in. Unread messages: {unread}", unread_messages=unread)
+        return chat_pb2.LoginResponse(message="error: Invalid username or password", unread_messages=0)
+    
+    def ListUsers(self, request, context):
+        """
+            Returns a list of active users
+        """
+        users = self.store.users
+        user_list = [u for u, data in users.items() if not data.get("deleted", False)]
+        return chat_pb2.ListUsersResponse(users=user_list)
+    
     def SendMessage(self, request, context):
+        # If not leader, cannot send
         if self.election.state != "leader":
             return chat_pb2.SendMessageResponse(status="error: Not leader", message_id="")
+        
+        sender, recipient, message_text = request.sender, request.recipient, request.message
+        recipient_info = self.store.users.get(recipient)
+        if recipient_info or recipient_info.get("deleted", False):
+            return chat_pb2.SendMessageResponse(status="error: Recipient not found or deleted", message_id="")
+
         # Create message with a unique ID.
         msg = {
             "id": str(uuid.uuid4()),
-            "from": request.sender,
-            "message": request.message,
+            "from": sender,
+            "message": message_text,
             "status": "unread"
         }
-        self.store.add_message(request.recipient, msg)
+        self.store.add_message(recipient, msg)
         ack_count = 1  # Leader's own write counts.
 
         for pid, addr in self.peers:
@@ -135,9 +173,9 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
                 stub = chat_pb2_grpc.ReplicationServiceStub(channel)
                 rep_req = chat_pb2.ReplicateMessageRequest(
                     message_id=msg["id"],
-                    sender=request.sender,
-                    recipient=request.recipient,
-                    message=request.message,
+                    sender=sender,
+                    recipient=recipient,
+                    message=message_text,
                     status="unread"
                 )
                 response = stub.ReplicateMessage(rep_req, timeout=2)
@@ -155,8 +193,120 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         else:
             return chat_pb2.SendMessageResponse(status="error: Replication failed", message_id="")
     
-    # (Other RPC methods could be implemented similarly.)
+    def Subscribe(self, request, context):
+        """
+            Handles subscription request
+        """
+        username = request.username
+        if not self.store.users.get(username):
+            context.set_details("User not found")
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            return
+        
+        with self.subscribers_lock:
+            if username not in self.subscribers:
+                self.subscribers[username] = {"cond": threading.Condition(), "queue": []}
+            sub = self.subscribers[username]
+        while True:
+            with sub["cond"]:
+                while not sub["queue"]:
+                    sub["cond"].wait()
+                msg = sub["queue"].pop(0)
+            yield chat_pb2.Message(
+                id=msg["id"],
+                sender=msg["from"],
+                message=msg["message"],
+                status=msg["status"]
+            )
 
+    def MarkRead(self, request, context):
+        """
+            Handle a mark read request
+        """
+        username, contact, batch_num = request.username, request.contact, request.batch_num
+        users = self.store.users.get(username)
+        if not users:
+            context.set_details("User not found")
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            return chat_pb2.MarkReadResponse(message="")
+        count = 0
+        for msg in users["messages"]:
+            if msg["from"] == contact and msg["status"] == "unread" and (batch_num == 0 or count < batch_num):
+                msg["status"] = "read"
+                count += 1
+                if batch_num != 0 and count == batch_num:
+                    break
+        return chat_pb2.MarkReadResponse(message=f"Marked {count} messages as read.")
+    
+    def DeleteUnreadMessage(self, request, context):
+        """
+            Handle delete unread message request
+        """
+        sender, recipient, message_id = request.sender, request.recipient, request.message_id
+        recipient_info = self.store.users.get(recipient)
+        if not recipient_info:
+            return chat_pb2.DeleteUnreadMessageResponse(status="error", message="Recipient not found")
+        found = False
+        for msg in recipient_info["messages"]:
+            if msg["id"] == message_id and msg["from"] == sender and msg["status"] == "unread":
+                msg["status"] = "deleted"
+                found = True
+                with self.subscribers_lock:
+                    if recipient in self.subscribers:
+                        sub = self.subscribers[recipient]
+                        with sub["cond"]:
+                            sub["queue"].append({
+                                "id": msg["id"],
+                                "from": msg["from"],
+                                "message": "",
+                                "status": "deleted"
+                            })
+                            sub["cond"].notify()
+                break
+        if not found:
+            return chat_pb2.DeleteUnreadMessageResponse(status="error", message="Message not found or already read")
+        return chat_pb2.DeleteUnreadMessageResponse(status="success", message="Message deleted.")
+    
+    def ReceiveMessages(self, request, context):
+        """
+            Handle receive message request
+        """
+        username = request.username
+        users = self.store.users.get(username)
+        if not users:
+            return chat_pb2.ReceiveMessagesResponse(status="error: User not found", messages=[])
+        msgs = []
+        for m in users["messages"]:
+            msgs.append(chat_pb2.Message(
+                id=m["id"],
+                sender=m["from"],
+                message=m["message"],
+                status=m["status"]
+            ))
+        return chat_pb2.ReceiveMessagesResponse(status="success", messages=msgs)
+
+    def DeleteAccount(self, request, context):
+        """
+            Handle delete account request
+        """
+        username = request.username
+        users = self.store.users.get(username)
+        if users and not users.get("deleted", False):
+            users["deleted"] = True
+            with self.subscribers_lock:
+                if username in self.subscribers:
+                    del self.subscribers[username]
+            return chat_pb2.DeleteAccountResponse(message=f"success: Your account '{username}' was deleted.")
+        return chat_pb2.DeleteAccountResponse(message="error: User not found or already deleted")
+
+    def Logout(self, request, context):
+        username = request.username
+        with self.active_users_lock:
+            if username in self.active_users:
+                self.active_users.remove(username)
+                return chat_pb2.LogoutResponse(message="success: Logged out.")
+            return chat_pb2.LogoutResponse(message="error: Failed to log out. User not active.")
+    
 # -------------------------
 # ReplicationService: Followers use this to replicate messages.
 # -------------------------
@@ -172,8 +322,8 @@ class ReplicationService(chat_pb2_grpc.ReplicationServiceServicer):
             "status": request.status
         }
         # Create recipient entry if needed.
-        # if request.recipient not in self.store.data:
-        #     self.store.data[request.recipient] = {}
+        # if request.recipient not in self.store.users:
+        #     self.store.users[request.recipient] = {}
         self.store.add_message(request.recipient, msg)
         return chat_pb2.ReplicateMessageResponse(success=True)
 
