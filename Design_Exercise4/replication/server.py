@@ -27,6 +27,27 @@ class PersistentStore:
             #     self.users[recipient]["messages"] = []
             self.users[recipient]["messages"].append(msg)
             self.save()
+
+    def register(self, username, password):
+        with self.lock:
+            self.users[username] = {
+                "password": password,
+                "messages": []
+            }
+            self.save()
+
+    def mark_read(self, username, contact, batch_num):
+        with self.lock:
+            users = self.users.get(username)
+            count = 0
+            for msg in users["messages"]:
+                if msg["from"] == contact and msg["status"] == "unread" and (batch_num == 0 or count < batch_num):
+                    msg["status"] = "read"
+                    count += 1
+                    if batch_num != 0 and count == batch_num:
+                        break
+            self.save()
+            return count
     
     def save(self):
         with self.lock:
@@ -99,6 +120,39 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         self.subscribers_lock = threading.Lock()
         self.subscribers = {}
 
+    def replicate_to_peers(self, method, rep_req):
+        """
+        Generic helper to send replication requests to peers.
+        
+        Parameters:
+            method (str): The method to call on peers (e.g., "ReplicateMessage", "ReplicateUser").
+            request (protobuf object): The request object to send.
+        
+        Returns:
+            int: Number of successful acknowledgments from peers.
+        """
+        ack_count = 1  # Leader's own write counts.
+        
+        for pid, addr in self.peers:
+            if not self.peer_status.get(pid, True):
+                continue  # Skip known down peers.
+            
+            try:
+                channel = grpc.insecure_channel(addr)
+                stub = chat_pb2_grpc.ReplicationServiceStub(channel)
+                
+                # Dynamically call the method on the stub (e.g., ReplicateMessage, ReplicateUser)
+                response = getattr(stub, method)(rep_req, timeout=2)
+                
+                if response.success:
+                    ack_count += 1
+                    self.peer_status[pid] = True
+            except Exception as e:
+                print(f"Replication error to {addr}: {e}")
+                self.peer_status[pid] = False  # Mark peer as down
+
+        return ack_count
+
 
     def CheckVersion(self, request, context):
         if request.version != SERVER_VERSION:
@@ -115,14 +169,21 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         username, password = request.username, request.password
         if username in self.store.users:
             return chat_pb2.RegisterResponse(message="error: This username is unavailable")
-        self.store.users[username] = {
-            "password": password,
-            "messages": []
-        }
-        self.store.save()
-        return chat_pb2.RegisterResponse(message="success: Account created")
+        self.store.register(username, password)
+        
+        rep_req = chat_pb2.ReplicateRegisterRequest(
+            username=username,
+            password=password
+        )
+        ack_count = self.replicate_to_peers("ReplicateRegister", rep_req)
+
+        # With 3 servers, a majority is 2 (leader + one backup).
+        if ack_count >= 2:
+            return chat_pb2.RegisterResponse(message="success: Account created")
+        else:
+            return chat_pb2.RegisterResponse(message="error: Replication failed")
     
-    def Login(self, request, context):
+    def Login(self, request, context): # STILL NEED TO REPLICATE ACTIVE_USERS
         """
             Handle login request
         """
@@ -163,29 +224,38 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             "status": "unread"
         }
         self.store.add_message(recipient, msg)
-        ack_count = 1  # Leader's own write counts.
+        # ack_count = 1  # Leader's own write counts.
 
-        for pid, addr in self.peers:
-            if not self.peer_status.get(pid, True):
-                continue  # Skip replicas already marked as down.
-            try:
-                channel = grpc.insecure_channel(addr)
-                stub = chat_pb2_grpc.ReplicationServiceStub(channel)
-                rep_req = chat_pb2.ReplicateMessageRequest(
-                    message_id=msg["id"],
-                    sender=sender,
-                    recipient=recipient,
-                    message=message_text,
-                    status="unread"
-                )
-                response = stub.ReplicateMessage(rep_req, timeout=2)
-                if response.success:
-                    ack_count += 1
-                    self.peer_status[pid] = True
-            except Exception as e:
-                print(f"Replication error to {addr}: {e}")
-                # Mark the replica as permanently down.
-                self.peer_status[pid] = False
+        # for pid, addr in self.peers:
+        #     if not self.peer_status.get(pid, True):
+        #         continue  # Skip replicas already marked as down.
+        #     try:
+        #         channel = grpc.insecure_channel(addr)
+        #         stub = chat_pb2_grpc.ReplicationServiceStub(channel)
+        #         rep_req = chat_pb2.ReplicateMessageRequest(
+        #             message_id=msg["id"],
+        #             sender=sender,
+        #             recipient=recipient,
+        #             message=message_text,
+        #             status="unread"
+        #         )
+        #         response = stub.ReplicateMessage(rep_req, timeout=2)
+        #         if response.success:
+        #             ack_count += 1
+        #             self.peer_status[pid] = True
+        #     except Exception as e:
+        #         print(f"Replication error to {addr}: {e}")
+        #         # Mark the replica as permanently down.
+        #         self.peer_status[pid] = False
+
+        rep_req = chat_pb2.ReplicateMessageRequest(
+            message_id=msg["id"],
+            sender=sender,
+            recipient=recipient,
+            message=message_text,
+            status="unread"
+        )
+        ack_count = self.replicate_to_peers("ReplicateMessage", rep_req)
 
         # With 3 servers, a majority is 2 (leader + one backup).
         if ack_count >= 2:
@@ -193,7 +263,7 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         else:
             return chat_pb2.SendMessageResponse(status="error: Replication failed", message_id="")
     
-    def Subscribe(self, request, context):
+    def Subscribe(self, request, context): # STILL NEED TO REPLICATE SUBSCRIBERS
         """
             Handles subscription request
         """
@@ -229,16 +299,29 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             context.set_details("User not found")
             context.set_code(grpc.StatusCode.NOT_FOUND)
             return chat_pb2.MarkReadResponse(message="")
-        count = 0
-        for msg in users["messages"]:
-            if msg["from"] == contact and msg["status"] == "unread" and (batch_num == 0 or count < batch_num):
-                msg["status"] = "read"
-                count += 1
-                if batch_num != 0 and count == batch_num:
-                    break
-        return chat_pb2.MarkReadResponse(message=f"Marked {count} messages as read.")
+        # count = 0
+        # for msg in users["messages"]:
+        #     if msg["from"] == contact and msg["status"] == "unread" and (batch_num == 0 or count < batch_num):
+        #         msg["status"] = "read"
+        #         count += 1
+        #         if batch_num != 0 and count == batch_num:
+        #             break
+        # self.store.save()
+        count = self.store.mark_read(username, contact, batch_num)
+
+        rep_req = chat_pb2.ReplicateMarkReadRequest(
+            username=username,
+            contact=contact,
+            batch_num=batch_num
+        )
+        ack_count = self.replicate_to_peers("ReplicateMarkRead", rep_req)
+
+        if ack_count >= 2:
+            return chat_pb2.MarkReadResponse(message=f"Marked {count} messages as read.")
+        else:
+            return chat_pb2.MarkReadResponse(message="error: Replication failed")
     
-    def DeleteUnreadMessage(self, request, context):
+    def DeleteUnreadMessage(self, request, context): # STILL NEED TO REPLICATE BECAUSE THIS DEPENDS ON HOW WE DO SUBSCRIBERS
         """
             Handle delete unread message request
         """
@@ -267,7 +350,7 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             return chat_pb2.DeleteUnreadMessageResponse(status="error", message="Message not found or already read")
         return chat_pb2.DeleteUnreadMessageResponse(status="success", message="Message deleted.")
     
-    def ReceiveMessages(self, request, context):
+    def ReceiveMessages(self, request, context): # NO REPLICATION BECAUSE NO EDIT TO PERSISTENT
         """
             Handle receive message request
         """
@@ -285,7 +368,7 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             ))
         return chat_pb2.ReceiveMessagesResponse(status="success", messages=msgs)
 
-    def DeleteAccount(self, request, context):
+    def DeleteAccount(self, request, context): # STILL NEED TO REPLICATE BECAUSE SUBSCRIBERS AND ACTIVE_USERS
         """
             Handle delete account request
         """
@@ -299,7 +382,7 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             return chat_pb2.DeleteAccountResponse(message=f"success: Your account '{username}' was deleted.")
         return chat_pb2.DeleteAccountResponse(message="error: User not found or already deleted")
 
-    def Logout(self, request, context):
+    def Logout(self, request, context): # STILL NEED TO REPLICATE BACAUSE ACTIVE_USERS
         username = request.username
         with self.active_users_lock:
             if username in self.active_users:
@@ -314,6 +397,10 @@ class ReplicationService(chat_pb2_grpc.ReplicationServiceServicer):
     def __init__(self, store):
         self.store = store
 
+    def ReplicateRegister(self, request, context):
+        self.store.register(request.username, request.password)
+        return chat_pb2.ReplicateRegisterResponse(success=True)
+
     def ReplicateMessage(self, request, context):
         msg = {
             "id": request.message_id,
@@ -326,6 +413,10 @@ class ReplicationService(chat_pb2_grpc.ReplicationServiceServicer):
         #     self.store.users[request.recipient] = {}
         self.store.add_message(request.recipient, msg)
         return chat_pb2.ReplicateMessageResponse(success=True)
+    
+    def ReplicateMarkRead(self, request, context):
+        self.store.mark_read(request.username, request.contact, request.batch_num)
+        return chat_pb2.ReplicateMarkReadResponse(success=True)
 
 # -------------------------
 # Main server function. Automatically spawn each server with its own JSON file.
