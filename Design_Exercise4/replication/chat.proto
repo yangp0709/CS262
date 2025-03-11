@@ -15,7 +15,12 @@ service ChatService {
 }
 
 service ReplicationService {
-  rpc ReplicateMessage (ReplicateMessageRequest) returns (ReplicateMessageRequest);
+  rpc ReplicateMessage (ReplicateMessageRequest) returns (ReplicateMessageResponse);
+  rpc ReplicateRegister (ReplicateRegisterRequest) returns (ReplicateRegisterResponse);
+  rpc ReplicateMarkRead (ReplicateMarkReadRequest) returns (ReplicateMarkReadResponse);
+  rpc ReplicateDeleteMessage (ReplicateDeleteMessageRequest) returns (ReplicateDeleteMessageResponse);
+  rpc ReplicateDeleteAccount (ReplicateDeleteAccountRequest) returns (ReplicateDeleteAccountResponse);
+  rpc ReplicateSubscribe (ReplicateSubscribeRequest) returns (ReplicateSubscribeResponse);
 }
 
 service Health {
@@ -51,6 +56,7 @@ message LoginResponse {
 }
 
 message ListUsersRequest {}
+
 message ListUsersResponse {
   repeated string users = 1;
 }
@@ -123,6 +129,8 @@ message LogoutResponse {
   string message = 1;
 }
 
+// Replication messages
+
 message ReplicateMessageRequest {
   string message_id = 1;
   string sender = 2;
@@ -132,6 +140,52 @@ message ReplicateMessageRequest {
 }
 
 message ReplicateMessageResponse {
+  bool success = 1;
+}
+
+message ReplicateRegisterRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message ReplicateRegisterResponse {
+  bool success = 1;
+}
+
+message ReplicateMarkReadRequest {
+  string username = 1;
+  string contact = 2;
+  int32 batch_num = 3;
+}
+
+message ReplicateMarkReadResponse {
+  bool success = 1;
+}
+
+message ReplicateDeleteMessageRequest {
+  string sender = 1;
+  string recipient = 2;
+  string message_id = 3;
+}
+
+message ReplicateDeleteMessageResponse {
+  bool success = 1;
+}
+
+message ReplicateDeleteAccountRequest {
+  string username = 1;
+}
+
+message ReplicateDeleteAccountResponse {
+  bool success = 1;
+}
+
+message ReplicateSubscribeRequest {
+  string username = 1;
+  bool subscribed = 2;
+}
+
+message ReplicateSubscribeResponse {
   bool success = 1;
 }
 
