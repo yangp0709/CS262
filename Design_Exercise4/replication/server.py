@@ -15,11 +15,20 @@ class PersistentStore:
     def __init__(self, filename):
         self.filename = filename
         self.lock = threading.RLock()  
+        self.users = {}  # {username: {"password": ..., "messages": [...], "subscribed": bool}}
+        self.subscribers_set = set()
+        self.active_users_set = set()
         if os.path.exists(self.filename):
             with open(self.filename, 'r') as f:
-                self.users = json.load(f)
+                data = json.load(f)
+            self.users = data.get("users", {})
+            self.subscribers_set = set(data.get("subscribers", []))
+            self.active_users_set = set(data.get("active_users", []))
         else:
-            self.users = {}  # Structure: {username: {password: pwd, messages: [msg, ...]}
+            # Initialize empty structures.
+            self.users = {}
+            self.subscribers_set = set()
+            self.active_users_set = set()
     
     def add_message(self, recipient, msg):
         with self.lock:
@@ -56,12 +65,39 @@ class PersistentStore:
         with self.lock:
             if username in self.users:
                 self.users[username]["subscribed"] = subscribed
+                if subscribed:
+                    self.subscribers_set.add(username)
+                else:
+                    self.subscribers_set.discard(username)
                 self.save()
+
+    def add_active_user(self, username):
+        with self.lock:
+            self.active_users_set.add(username)
+            self.save()
+
+    def remove_active_user(self, username):
+        with self.lock:
+            self.active_users_set.discard(username)
+            self.save()
+
+    def get_active_users(self):
+        with self.lock:
+            return self.active_users_set.copy()
+
+    def get_subscribers(self):
+        with self.lock:
+            return self.subscribers_set.copy()
     
     def save(self):
         with self.lock:
+            data = {
+                "users": self.users,
+                "subscribers": list(self.subscribers_set),
+                "active_users": list(self.active_users_set)
+            }
             with open(self.filename, 'w') as f:
-                json.dump(self.users, f, indent=2)
+                json.dump(data, f, indent=2)
     
     # def get_all_messages(self):
     #     with self.lock:
@@ -200,10 +236,14 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
                 if username in self.active_users:
                     return chat_pb2.LoginResponse(message="error: User already logged in", unread_messages=0)
                 self.active_users.add(username)
+            # Update persistent active users and replicate the login event.
+            self.store.add_active_user(username)
+            rep_req = chat_pb2.ReplicateActiveUserRequest(username=username)
+            self.replicate_to_peers("ReplicateActiveUserLogin", rep_req)
             unread = sum(1 for m in user["messages"] if m["status"] == "unread")
             return chat_pb2.LoginResponse(message=f"success: Logged in. Unread messages: {unread}", unread_messages=unread)
         return chat_pb2.LoginResponse(message="error: Invalid username or password", unread_messages=0)
-    
+
     def ListUsers(self, request, context):
         """
             Returns a list of active users
@@ -231,7 +271,6 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             "message": message_text,
             "status": "unread"
         }
-        self.store.add_message(recipient, msg)
 
         if not self.store.add_message(recipient, msg):
             print(f"[SEND] Failed to add message to recipient {recipient}'s store.")
@@ -431,14 +470,15 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         with self.active_users_lock:
             if username in self.active_users:
                 self.active_users.remove(username)
-        
-        # On logout, mark the user as not subscribed
+        # Remove from persistent active users and replicate the logout event.
+        self.store.remove_active_user(username)
+        rep_req = chat_pb2.ReplicateActiveUserRequest(username=username)
+        self.replicate_to_peers("ReplicateActiveUserLogout", rep_req)
+        # Also clear the subscription flag.
         self.store.set_subscription(username, False)
         rep_req = chat_pb2.ReplicateSubscribeRequest(username=username, subscribed=False)
         self.replicate_to_peers("ReplicateSubscribe", rep_req)
-
         return chat_pb2.LogoutResponse(message="success: Logged out.")
-    
 # -------------------------
 # ReplicationService: Followers use this to replicate messages.
 # -------------------------
@@ -498,6 +538,18 @@ class ReplicationService(chat_pb2_grpc.ReplicationServiceServicer):
             self.store.set_subscription(request.username, request.subscribed)
             return chat_pb2.ReplicateSubscribeResponse(success=True)
         return chat_pb2.ReplicateSubscribeResponse(success=False)
+    
+    def ReplicateActiveUserLogin(self, request, context):
+        # Add active user persistently.
+        print(f"[REPL_ACTIVE] Adding active user: {request.username}")
+        self.store.add_active_user(request.username)
+        return chat_pb2.ReplicateActiveUserResponse(success=True)
+
+    def ReplicateActiveUserLogout(self, request, context):
+        # Remove active user persistently.
+        print(f"[REPL_ACTIVE] Removing active user: {request.username}")
+        self.store.remove_active_user(request.username)
+        return chat_pb2.ReplicateActiveUserResponse(success=True)
 
 def clear(ports):
     for server_id in ports.keys():

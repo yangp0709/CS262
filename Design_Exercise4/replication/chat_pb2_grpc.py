@@ -566,6 +566,16 @@ class ReplicationServiceStub(object):
                 request_serializer=chat__pb2.ReplicateSubscribeRequest.SerializeToString,
                 response_deserializer=chat__pb2.ReplicateSubscribeResponse.FromString,
                 _registered_method=True)
+        self.ReplicateActiveUserLogin = channel.unary_unary(
+                '/ReplicationService/ReplicateActiveUserLogin',
+                request_serializer=chat__pb2.ReplicateActiveUserRequest.SerializeToString,
+                response_deserializer=chat__pb2.ReplicateActiveUserResponse.FromString,
+                _registered_method=True)
+        self.ReplicateActiveUserLogout = channel.unary_unary(
+                '/ReplicationService/ReplicateActiveUserLogout',
+                request_serializer=chat__pb2.ReplicateActiveUserRequest.SerializeToString,
+                response_deserializer=chat__pb2.ReplicateActiveUserResponse.FromString,
+                _registered_method=True)
 
 
 class ReplicationServiceServicer(object):
@@ -607,6 +617,18 @@ class ReplicationServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ReplicateActiveUserLogin(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReplicateActiveUserLogout(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ReplicationServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -639,6 +661,16 @@ def add_ReplicationServiceServicer_to_server(servicer, server):
                     servicer.ReplicateSubscribe,
                     request_deserializer=chat__pb2.ReplicateSubscribeRequest.FromString,
                     response_serializer=chat__pb2.ReplicateSubscribeResponse.SerializeToString,
+            ),
+            'ReplicateActiveUserLogin': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReplicateActiveUserLogin,
+                    request_deserializer=chat__pb2.ReplicateActiveUserRequest.FromString,
+                    response_serializer=chat__pb2.ReplicateActiveUserResponse.SerializeToString,
+            ),
+            'ReplicateActiveUserLogout': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReplicateActiveUserLogout,
+                    request_deserializer=chat__pb2.ReplicateActiveUserRequest.FromString,
+                    response_serializer=chat__pb2.ReplicateActiveUserResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -803,6 +835,60 @@ class ReplicationService(object):
             '/ReplicationService/ReplicateSubscribe',
             chat__pb2.ReplicateSubscribeRequest.SerializeToString,
             chat__pb2.ReplicateSubscribeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReplicateActiveUserLogin(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/ReplicationService/ReplicateActiveUserLogin',
+            chat__pb2.ReplicateActiveUserRequest.SerializeToString,
+            chat__pb2.ReplicateActiveUserResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReplicateActiveUserLogout(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/ReplicationService/ReplicateActiveUserLogout',
+            chat__pb2.ReplicateActiveUserRequest.SerializeToString,
+            chat__pb2.ReplicateActiveUserResponse.FromString,
             options,
             channel_credentials,
             insecure,
