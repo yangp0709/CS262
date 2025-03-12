@@ -298,18 +298,30 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             if username not in self.subscribers:
                 self.subscribers[username] = {"cond": threading.Condition(), "queue": []}
             sub = self.subscribers[username]
-        while True:
-            with sub["cond"]:
-                while not sub["queue"]:
-                    sub["cond"].wait()
-                msg = sub["queue"].pop(0)
-            yield chat_pb2.Message(
-                id=msg["id"],
-                sender=msg["from"],
-                message=msg["message"],
-                status=msg["status"]
-            )
 
+        try:
+            while True:
+                with sub["cond"]:
+                    while not sub["queue"]:
+                        sub["cond"].wait()
+                    msg = sub["queue"].pop(0)
+                yield chat_pb2.Message(
+                    id=msg["id"],
+                    sender=msg["from"],
+                    message=msg["message"],
+                    status=msg["status"]
+                )
+
+        except Exception as e:
+            print(f"[SUBSCRIBE] Subscription stream closed for user {username}: {e}")
+
+        finally:
+            with self.subscribers_lock:
+                if username in self.subscribers:
+                    del self.subscribers[username]
+        self.store.set_subscription(username, False)
+        req_rep = chat_pb2.ReplicateSubscribeRequest(username=username, subscribed=False)
+        self.replicate_to_peers("ReplicateSubscribe", req_rep)
     def MarkRead(self, request, context):
         """
             Handle a mark read request
