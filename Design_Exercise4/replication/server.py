@@ -331,36 +331,32 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         
         self.store.set_subscription(username, True)
         req_rep = chat_pb2.ReplicateSubscribeRequest(username=username, subscribed=True)
-        self.replicate_to_peers("ReplicateSubscribe", req_rep)
+        ack_count = self.replicate_to_peers("ReplicateSubscribe", req_rep)
+
+        # With 3 servers, a majority is 2 (leader + one backup).
+        if ack_count >= 2:
+            print(f"Subscribers replication successful, ack count: {ack_count}")
+        else:
+            print(f"Subscribers replication failed, ack count: {ack_count}")
+            return  # TODO STILL NEED TO FIX LOGIC
         
         with self.subscribers_lock:
             if username not in self.subscribers:
                 self.subscribers[username] = {"cond": threading.Condition(), "queue": []}
             sub = self.subscribers[username]
 
-        try:
-            while True:
-                with sub["cond"]:
-                    while not sub["queue"]:
-                        sub["cond"].wait()
-                    msg = sub["queue"].pop(0)
-                yield chat_pb2.Message(
-                    id=msg["id"],
-                    sender=msg["from"],
-                    message=msg["message"],
-                    status=msg["status"]
-                )
+        while True:
+            with sub["cond"]:
+                while not sub["queue"]:
+                    sub["cond"].wait()
+                msg = sub["queue"].pop(0)
+            yield chat_pb2.Message(
+                id=msg["id"],
+                sender=msg["from"],
+                message=msg["message"],
+                status=msg["status"]
+            )
 
-        except Exception as e:
-            print(f"[SUBSCRIBE] Subscription stream closed for user {username}: {e}")
-
-        finally:
-            with self.subscribers_lock:
-                if username in self.subscribers:
-                    del self.subscribers[username]
-        self.store.set_subscription(username, False)
-        req_rep = chat_pb2.ReplicateSubscribeRequest(username=username, subscribed=False)
-        self.replicate_to_peers("ReplicateSubscribe", req_rep)
     def MarkRead(self, request, context):
         """
             Handle a mark read request
@@ -591,5 +587,25 @@ def launch_servers():
     for p in processes:
         p.join()
 
+# if __name__ == "__main__":
+#     launch_servers()
+
+# run each server separately
+import argparse
 if __name__ == "__main__":
-    launch_servers()
+    parser = argparse.ArgumentParser(description="Start a specific server instance.")
+    parser.add_argument("--id", type=int, required=True, help="Server ID (1, 2, or 3)")
+    
+    args = parser.parse_args()
+    
+    ports = {1: 8001, 2: 8002, 3: 8003}
+    host = "localhost"
+    
+    if args.id not in ports:
+        print(f"Invalid server ID {args.id}. Choose from {list(ports.keys())}.")
+    else:
+        server_id = args.id
+        port = ports[server_id]
+        peers = [(pid, f"{host}:{p}") for pid, p in ports.items() if pid != server_id]
+        serve(server_id, host, port, peers)
+
