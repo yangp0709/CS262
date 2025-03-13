@@ -120,6 +120,7 @@ class LeaderElection:
         self.state = "backup"
         self.leader_id = None
         self.lock = threading.Lock()
+        self.peer_status = {pid: True for pid, _ in peers}
 
     def ping_peer(self, address):
         try:
@@ -132,7 +133,14 @@ class LeaderElection:
 
     def elect(self):
         with self.lock:
-            lower_alive = any(self.ping_peer(addr) for pid, addr in self.peers if pid < self.server_id)
+            # Compute peer_status first
+            self.peer_status = {pid: self.ping_peer(addr) for pid, addr in self.peers}
+            print(self.peer_status)
+
+            # Derive lower_alive from peer_status
+            lower_alive = any(self.peer_status[pid] for pid in self.peer_status if pid < self.server_id)
+
+            # lower_alive = any(self.ping_peer(addr) for pid, addr in self.peers if pid < self.server_id)
             if not lower_alive:
                 self.state = "leader"
                 self.leader_id = self.server_id
@@ -159,7 +167,6 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         self.election = election
         self.peers = peers  # List of (peer_id, address)
         # Track peer health: once marked down, remains down forever.
-        self.peer_status = {pid: True for pid, _ in peers}
         self.active_users_lock = threading.Lock()
         self.active_users = set()
         # In-memory subscribers for active gRPC streams.
@@ -179,7 +186,7 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         """
         ack_count = 1  # Leader's own write counts.
         for pid, addr in self.peers:
-            if not self.peer_status.get(pid, True):
+            if not self.election.peer_status.get(pid, True):
                 print(f"[REPL] Skipping peer {pid} at {addr} (marked down).")
                 continue
             try:
@@ -190,12 +197,10 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
                 if response.success:
                     print(f"[REPL] Peer {pid} at {addr} acknowledged replication.")
                     ack_count += 1
-                    self.peer_status[pid] = True
                 else:
                     print(f"[REPL] Peer {pid} at {addr} did NOT acknowledge replication.")
             except Exception as e:
                 print(f"[REPL] Replication error to peer {pid} at {addr}: {e}")
-                self.peer_status[pid] = False
         return ack_count
 
     def CheckVersion(self, request, context):
