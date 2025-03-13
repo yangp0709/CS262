@@ -4,9 +4,12 @@ import threading, time, uuid, json, os, sys
 import chat_pb2
 import chat_pb2_grpc
 import multiprocessing
+import argparse
 
 HEARTBEAT_INTERVAL = 2  # seconds
 SERVER_VERSION = "1.0.0"
+ports = {1: 8001, 2: 8002, 3: 8003}
+all_host_port_pairs = []
 
 # -------------------------
 # PersistentStore: writes to a JSON file unique per server.
@@ -152,6 +155,7 @@ class LeaderElection:
                         candidate = min(candidate, pid)
                 self.leader_id = candidate
             print(f"Server {self.server_id}: state={self.state}, leader={self.leader_id}")
+            return all_host_port_pairs[self.leader_id - 1] # return host:port of leader
 
     def start(self):
         while True:
@@ -202,6 +206,10 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             except Exception as e:
                 print(f"[REPL] Replication error to peer {pid} at {addr}: {e}")
         return ack_count
+    
+    def GetLeaderInfo(self, request, context):
+        print('ehll')
+        return chat_pb2.GetLeaderInfoResponse(info=self.election.elect())
 
     def CheckVersion(self, request, context):
         if request.version != SERVER_VERSION:
@@ -277,7 +285,9 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             "status": "unread"
         }
 
-        if not self.store.add_message(recipient, msg):
+        sent_message = self.store.add_message(recipient, msg)
+
+        if not sent_message:
             print(f"[SEND] Failed to add message to recipient {recipient}'s store.")
             return chat_pb2.SendMessageResponse(status="error: Failed to store message", message_id="")
         
@@ -570,7 +580,8 @@ def serve(server_id, host, port, peers):
     chat_pb2_grpc.add_ChatServiceServicer_to_server(ChatService(store, election, peers), server)
     chat_pb2_grpc.add_ReplicationServiceServicer_to_server(ReplicationService(store), server)
     chat_pb2_grpc.add_HealthServicer_to_server(HealthService(), server)
-    server.add_insecure_port(f"{host}:{port}")
+    # Bind on all interfaces so that external peers can connect:
+    server.add_insecure_port(f"0.0.0.0:{port}")
     server.start()
     print(f"Server {server_id} started on {host}:{port}")
     server.wait_for_termination()
@@ -579,7 +590,7 @@ def serve(server_id, host, port, peers):
 # Launcher: automatically spawn all servers using a ports dictionary.
 # -------------------------
 def launch_servers():
-    ports = {1: 8001, 2: 8002, 3: 8003}
+    global ports
     clear(ports)
     host = "localhost"
     processes = []
@@ -596,21 +607,27 @@ def launch_servers():
 #     launch_servers()
 
 # run each server separately
-import argparse
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Start a specific server instance.")
     parser.add_argument("--id", type=int, required=True, help="Server ID (1, 2, or 3)")
+    parser.add_argument("--all_ips", type=str, required=True,
+                        help="Comma-separated list of external IP addresses for all servers (order: server1,server2,server3)")
     
     args = parser.parse_args()
-    
-    ports = {1: 8001, 2: 8002, 3: 8003}
-    host = "localhost"
+    # Parse the IPs:
+    all_ips = args.all_ips.split(",")
+    host = all_ips[args.id - 1]  # External IP of this server
+    # Build peers list and for all servers: each peer is a tuple (peer_id, "peer_ip:peer_port")
+    peers = []
+    for i in range(len(all_ips)):
+        if (i+1) != args.id:
+            peers.append((i+1, f"{all_ips[i]}:{ports[i+1]}"))
+        all_host_port_pairs.append(f"{all_ips[i]}:{ports[i+1]}")
     
     if args.id not in ports:
         print(f"Invalid server ID {args.id}. Choose from {list(ports.keys())}.")
     else:
         server_id = args.id
         port = ports[server_id]
-        peers = [(pid, f"{host}:{p}") for pid, p in ports.items() if pid != server_id]
         serve(server_id, host, port, peers)
 

@@ -6,27 +6,29 @@ import threading
 import chat_pb2
 import chat_pb2_grpc
 import sys
+import argparse
 
 from chat_ui_objects import root, login_frame, username_entry_var, username_entry, password_entry, chat_frame, chat_label, new_conversation_entry_var, new_conversation_entry, conversation_list
+from server import ports
 
-# Get SERVER_HOST and SERVER_PORT from CLI if file ran from terminal. 
-# Otherwise use the default values (so that functions run for tests)
-if sys.stdin.isatty():
-    while True:
-        SERVER_HOST = input("Enter server host: ").strip()
-        if SERVER_HOST:
-            break  # Ensure the user enters a non-empty host
+# # Get SERVER_HOST and SERVER_PORT from CLI if file ran from terminal. 
+# # Otherwise use the default values (so that functions run for tests)
+# if sys.stdin.isatty():
+#     while True:
+#         SERVER_HOST = input("Enter server host: ").strip()
+#         if SERVER_HOST:
+#             break  # Ensure the user enters a non-empty host
 
-    while True:
-        try:
-            SERVER_PORT = int(input("Enter server port: ").strip())
-            break  # Ensure the user enters a valid integer port
-        except ValueError:
-            print("Invalid input. Please enter a valid port number.")
+#     while True:
+#         try:
+#             SERVER_PORT = int(input("Enter server port: ").strip())
+#             break  # Ensure the user enters a valid integer port
+#         except ValueError:
+#             print("Invalid input. Please enter a valid port number.")
 
-else:
-    SERVER_HOST = "localhost"
-    SERVER_PORT = 5001
+# else:
+#     SERVER_HOST = "localhost"
+#     SERVER_PORT = 5001
 
 CLIENT_VERSION = "1.0.0"
 
@@ -36,9 +38,40 @@ conversations = {}
 chat_windows = {}   # open chat windows
 undelivered = {} # saves undelivered message
 subscription_active = False
+all_host_port_pairs = []
 
-channel = grpc.insecure_channel(f"{SERVER_HOST}:{SERVER_PORT}")
-stub = chat_pb2_grpc.ChatServiceStub(channel)
+SERVER_HOST = ""
+SERVER_PORT = ""
+stub = None
+
+def connect_to_leader():
+    global SERVER_HOST, SERVER_PORT, stub
+    print('checking leader')
+    noleader = True
+    for server in all_host_port_pairs:
+        try:
+            temp_channel = grpc.insecure_channel(server)
+            temp_stub = chat_pb2_grpc.ChatServiceStub(temp_channel)
+            response = temp_stub.GetLeaderInfo(chat_pb2.GetLeaderInfoRequest())
+            leader_host, leader_port = response.info.split(':')
+            noleader = False
+
+            # update leader if necessary
+            if SERVER_HOST != leader_host or SERVER_PORT != leader_port:
+                SERVER_HOST = leader_host
+                SERVER_PORT = leader_port
+                print('NEW LEADER:', SERVER_HOST, SERVER_PORT)
+                channel = grpc.insecure_channel(f"{SERVER_HOST}:{SERVER_PORT}")
+                stub = chat_pb2_grpc.ChatServiceStub(channel)
+            break
+        except:
+            print(f"Failed to connect to {server}")
+            continue  # Try next server
+
+    if noleader:
+        print('No leader found')
+        sys.exit(1)
+    root.after(5000, connect_to_leader)
 
 def hash_password(password):
     """
@@ -581,8 +614,11 @@ def run_gui():
             None
     """
 
+    connect_to_leader()
+
     if not check_version_number():
         sys.exit(1)
+
     root.title("Chat Application")
     root.geometry("400x500")
 
@@ -629,4 +665,10 @@ def run_gui():
     root.mainloop()
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Start a specific client instance.")
+    parser.add_argument("--all_ips", type=str, required=True,
+                        help="Comma-separated list of external IP addresses for all servers (order: server1,server2,server3)")
+    args = parser.parse_args()
+    all_ips = args.all_ips.split(",")
+    all_host_port_pairs = [f"{all_ips[i]}:{ports[i+1]}" for i in range(len(all_ips))]
     run_gui()

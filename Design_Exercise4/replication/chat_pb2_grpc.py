@@ -34,6 +34,11 @@ class ChatServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.GetLeaderInfo = channel.unary_unary(
+                '/ChatService/GetLeaderInfo',
+                request_serializer=chat__pb2.GetLeaderInfoRequest.SerializeToString,
+                response_deserializer=chat__pb2.GetLeaderInfoResponse.FromString,
+                _registered_method=True)
         self.CheckVersion = channel.unary_unary(
                 '/ChatService/CheckVersion',
                 request_serializer=chat__pb2.Version.SerializeToString,
@@ -93,6 +98,12 @@ class ChatServiceStub(object):
 
 class ChatServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def GetLeaderInfo(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def CheckVersion(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -163,6 +174,11 @@ class ChatServiceServicer(object):
 
 def add_ChatServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'GetLeaderInfo': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetLeaderInfo,
+                    request_deserializer=chat__pb2.GetLeaderInfoRequest.FromString,
+                    response_serializer=chat__pb2.GetLeaderInfoResponse.SerializeToString,
+            ),
             'CheckVersion': grpc.unary_unary_rpc_method_handler(
                     servicer.CheckVersion,
                     request_deserializer=chat__pb2.Version.FromString,
@@ -228,6 +244,33 @@ def add_ChatServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class ChatService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def GetLeaderInfo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/ChatService/GetLeaderInfo',
+            chat__pb2.GetLeaderInfoRequest.SerializeToString,
+            chat__pb2.GetLeaderInfoResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
 
     @staticmethod
     def CheckVersion(request,

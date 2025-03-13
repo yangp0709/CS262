@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 service ChatService {
+  rpc GetLeaderInfo (GetLeaderInfoRequest) returns (GetLeaderInfoResponse);
   rpc CheckVersion(Version) returns (VersionResponse);
   rpc Register (RegisterRequest) returns (RegisterResponse);
   rpc Login (LoginRequest) returns (LoginResponse);
@@ -28,6 +29,12 @@ service ReplicationService {
 
 service Health {
   rpc Ping(PingRequest) returns (PingResponse);
+}
+
+message GetLeaderInfoRequest {}
+
+message GetLeaderInfoResponse {
+  string info = 1;
 }
 
 message Version {
