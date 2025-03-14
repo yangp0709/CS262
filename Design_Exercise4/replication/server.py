@@ -208,7 +208,9 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         return ack_count
     
     def GetLeaderInfo(self, request, context):
-        print('ehll')
+        """
+            Allows client to access the host and port information of the leader
+        """
         return chat_pb2.GetLeaderInfoResponse(info=self.election.elect())
 
     def CheckVersion(self, request, context):
@@ -225,17 +227,19 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         if username in self.store.users:
             print(f"[REGISTER] Username {username} already exists.")
             return chat_pb2.RegisterResponse(message="error: This username is unavailable")
+        
         self.store.register(username, password)
         print(f"[REGISTER] User {username} registered in local store.")
+
         rep_req = chat_pb2.ReplicateRegisterRequest(username=username, password=password)
         ack_count = self.replicate_to_peers("ReplicateRegister", rep_req)
-        print(f"[REGISTER] Replication ack count for user {username}: {ack_count}")
+        
         if ack_count >= 2:
             print(f"[REGISTER] Registration successful for {username}.")
-            return chat_pb2.RegisterResponse(message="success: Account created")
         else:
             print(f"[REGISTER] Registration replication failed for {username}.")
-            return chat_pb2.RegisterResponse(message="error: Replication failed")
+            
+        return chat_pb2.RegisterResponse(message="success: Account created")
 
     
     def Login(self, request, context): # STILL NEED TO REPLICATE ACTIVE_USERS 
