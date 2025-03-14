@@ -242,7 +242,7 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         return chat_pb2.RegisterResponse(message="success: Account created")
 
     
-    def Login(self, request, context): # STILL NEED TO REPLICATE ACTIVE_USERS 
+    def Login(self, request, context):
         """
             Handle login request
         """
@@ -336,7 +336,6 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             print(f"Subscribers replication successful, ack count: {ack_count}")
         else:
             print(f"Subscribers replication failed, ack count: {ack_count}")
-            return  # TODO STILL NEED TO FIX LOGIC
         
         with self.subscribers_lock:
             if username not in self.subscribers:
