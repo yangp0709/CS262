@@ -389,7 +389,7 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             print("[MAKRREAD] replication failed")
         return chat_pb2.MarkReadResponse(message=f"Marked {count} messages as read.")
     
-    def DeleteUnreadMessage(self, request, context): # STILL NEED TO REPLICATE BECAUSE THIS DEPENDS ON HOW WE DO SUBSCRIBERS
+    def DeleteUnreadMessage(self, request, context): 
         """
             Handle delete unread message request
         """
@@ -459,9 +459,10 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             ack_count = self.replicate_to_peers("ReplicateDeleteAccount", rep_req)
 
             if ack_count >= 2:
-                return chat_pb2.DeleteAccountResponse(message=f"success: Your account '{username}' was deleted.")
+                print("[DELETEACCOUNT] replication successful")
             else:
-                return chat_pb2.DeleteAccountResponse(message="error: Replication failed")
+                print("[DELETEACCOUNT] replication failed")
+            return chat_pb2.DeleteAccountResponse(message=f"success: Your account '{username}' was deleted.")
         return chat_pb2.DeleteAccountResponse(message="error: User not found or already deleted")
     
     def Logout(self, request, context): # STILL NEED TO REPLICATE BACAUSE ACTIVE_USERS
