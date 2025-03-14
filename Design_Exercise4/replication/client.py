@@ -63,6 +63,7 @@ def connect_to_leader():
                 print('NEW LEADER:', SERVER_HOST, SERVER_PORT)
                 channel = grpc.insecure_channel(f"{SERVER_HOST}:{SERVER_PORT}")
                 stub = chat_pb2_grpc.ChatServiceStub(channel)
+                check_new_messages() # restart the check new messages loop
             break
         except:
             print(f"Failed to connect to {server}")
