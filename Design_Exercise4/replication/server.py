@@ -272,7 +272,6 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             return chat_pb2.SendMessageResponse(status="error: Not leader", message_id="")
         
         sender, recipient, message_text = request.sender, request.recipient, request.message
-        print(f"[SEND] Received SendMessage from {sender} to {recipient}: '{message_text}'")
         recipient_info = self.store.users.get(recipient)
         if not recipient_info or recipient_info.get("deleted", False):
             return chat_pb2.SendMessageResponse(status="error: Recipient not found or deleted", message_id="")
@@ -287,52 +286,26 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
 
         sent_message = self.store.add_message(recipient, msg)
 
-        if not sent_message:
-            print(f"[SEND] Failed to add message to recipient {recipient}'s store.")
-            return chat_pb2.SendMessageResponse(status="error: Failed to store message", message_id="")
-        
-        print(f"[SEND] Message stored locally with id: {msg['id']}")
-    
-        # ack_count = 1  # Leader's own write counts.
+        if sent_message:
+            rep_req = chat_pb2.ReplicateMessageRequest(
+                message_id=msg["id"],
+                sender=sender,
+                recipient=recipient,
+                message=message_text,
+                status="unread"
+            )
+            ack_count = self.replicate_to_peers("ReplicateMessage", rep_req)
 
-        # for pid, addr in self.peers:
-        #     if not self.peer_status.get(pid, True):
-        #         continue  # Skip replicas already marked as down.
-        #     try:
-        #         channel = grpc.insecure_channel(addr)
-        #         stub = chat_pb2_grpc.ReplicationServiceStub(channel)
-        #         rep_req = chat_pb2.ReplicateMessageRequest(
-        #             message_id=msg["id"],
-        #             sender=sender,
-        #             recipient=recipient,
-        #             message=message_text,
-        #             status="unread"
-        #         )
-        #         response = stub.ReplicateMessage(rep_req, timeout=2)
-        #         if response.success:
-        #             ack_count += 1
-        #             self.peer_status[pid] = True
-        #     except Exception as e:
-        #         print(f"Replication error to {addr}: {e}")
-        #         # Mark the replica as permanently down.
-        #         self.peer_status[pid] = False
-
-        rep_req = chat_pb2.ReplicateMessageRequest(
-            message_id=msg["id"],
-            sender=sender,
-            recipient=recipient,
-            message=message_text,
-            status="unread"
-        )
-        ack_count = self.replicate_to_peers("ReplicateMessage", rep_req)
-
-        # With 3 servers, a majority is 2 (leader + one backup).
-        if ack_count >= 2:
-            print(f"[SEND] Message replication successful, ack count: {ack_count}")
+            # With 3 servers, a majority is 2 (leader + one backup).
+            if ack_count >= 2:
+                print(f"[SEND] Message replication successful, ack count: {ack_count}")
+            else:
+                print(f"[SEND] Message replication failed, ack count: {ack_count}")
+            
             return chat_pb2.SendMessageResponse(status="success", message_id=msg["id"])
-        else:
-            print(f"[SEND] Message replication failed, ack count: {ack_count}")
-            return chat_pb2.SendMessageResponse(status="error: Replication failed", message_id="")
+        
+        print(f"[SEND] Failed to add message to recipient {recipient}'s store.")
+        return chat_pb2.SendMessageResponse(status="error: Failed to store message", message_id="")
     
     def Subscribe(self, request, context): # STILL NEED TO REPLICATE SUBSCRIBERS
         """
