@@ -253,10 +253,16 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
                 if username in self.active_users:
                     return chat_pb2.LoginResponse(message="error: User already logged in", unread_messages=0)
                 self.active_users.add(username)
+
             # Update persistent active users and replicate the login event.
             self.store.add_active_user(username)
             rep_req = chat_pb2.ReplicateActiveUserRequest(username=username)
-            self.replicate_to_peers("ReplicateActiveUserLogin", rep_req)
+            ack_count = self.replicate_to_peers("ReplicateActiveUserLogin", rep_req)
+            if ack_count >= 2:
+                print(f"[LOGIN] Login successful for {username}.")
+            else:
+                print(f"[LOGIN] Login replication failed for {username}.")
+
             unread = sum(1 for m in user["messages"] if m["status"] == "unread")
             return chat_pb2.LoginResponse(message=f"success: Logged in. Unread messages: {unread}", unread_messages=unread)
         return chat_pb2.LoginResponse(message="error: Invalid username or password", unread_messages=0)
