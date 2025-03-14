@@ -1,13 +1,11 @@
 import grpc
 from concurrent import futures
 import threading, time, uuid, json, os, sys
-os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 import chat_pb2
 import chat_pb2_grpc
 import multiprocessing
 import argparse
 import atexit
-import etcd3
 
 HEARTBEAT_INTERVAL = 2  # seconds
 SERVER_VERSION = "1.0.0"
