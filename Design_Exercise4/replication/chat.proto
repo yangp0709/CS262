@@ -2,6 +2,7 @@ syntax = "proto3";
 
 service ChatService {
   rpc GetLeaderInfo (GetLeaderInfoRequest) returns (GetLeaderInfoResponse);
+  rpc LoadActiveUsersAndSubscribersFromPersistent (Empty) returns (Empty);
   rpc CheckVersion(Version) returns (VersionResponse);
   rpc Register (RegisterRequest) returns (RegisterResponse);
   rpc Login (LoginRequest) returns (LoginResponse);
@@ -36,6 +37,8 @@ message GetLeaderInfoRequest {}
 message GetLeaderInfoResponse {
   string info = 1;
 }
+
+message Empty {}
 
 message Version {
   string version = 1;

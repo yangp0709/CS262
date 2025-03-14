@@ -222,6 +222,16 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             Allows client to access the host and port information of the leader
         """
         return chat_pb2.GetLeaderInfoResponse(info=self.election.elect())
+    
+    def LoadActiveUsersAndSubscribersFromPersistent(self, request, context):
+        """
+            Called when the client connects to the new leader server, and the 
+            new server needs to load the acive_users and subscribers from the persistent
+        """
+        self.active_users = self.store.active_users_set
+        for username in self.store.subscribers_set:
+            self.subscribers[username] = {"cond": threading.Condition(), "queue": []}
+        return chat_pb2.Empty()
 
     def CheckVersion(self, request, context):
         if request.version != SERVER_VERSION:
@@ -444,7 +454,7 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             ))
         return chat_pb2.ReceiveMessagesResponse(status="success", messages=msgs)
 
-    def DeleteAccount(self, request, context): # STILL NEED TO REPLICATE BECAUSE SUBSCRIBERS AND ACTIVE_USERS
+    def DeleteAccount(self, request, context):
         """
             Handle delete account request
         """
@@ -470,15 +480,17 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         with self.active_users_lock:
             if username in self.active_users:
                 self.active_users.remove(username)
-        # Remove from persistent active users and replicate the logout event.
-        self.store.remove_active_user(username)
-        rep_req = chat_pb2.ReplicateActiveUserRequest(username=username)
-        self.replicate_to_peers("ReplicateActiveUserLogout", rep_req)
-        # Also clear the subscription flag.
-        self.store.set_subscription(username, False)
-        rep_req = chat_pb2.ReplicateSubscribeRequest(username=username, subscribed=False)
-        self.replicate_to_peers("ReplicateSubscribe", rep_req)
-        return chat_pb2.LogoutResponse(message="success: Logged out.")
+                # Remove from persistent active users and replicate the logout event.
+                self.store.remove_active_user(username)
+                rep_req = chat_pb2.ReplicateActiveUserRequest(username=username)
+                ack_count = self.replicate_to_peers("ReplicateActiveUserLogout", rep_req)
+
+                if ack_count >= 2:
+                    print("[LOGOUT] replication successful")
+                else:
+                    print("[LOGOUT] replication failed")
+                return chat_pb2.LogoutResponse(message="success: Logged out.")
+            return chat_pb2.LogoutResponse(message="error: Failed to log out. User not active.")
 # -------------------------
 # ReplicationService: Followers use this to replicate messages.
 # -------------------------

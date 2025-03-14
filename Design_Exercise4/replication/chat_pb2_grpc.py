@@ -39,6 +39,11 @@ class ChatServiceStub(object):
                 request_serializer=chat__pb2.GetLeaderInfoRequest.SerializeToString,
                 response_deserializer=chat__pb2.GetLeaderInfoResponse.FromString,
                 _registered_method=True)
+        self.LoadActiveUsersAndSubscribersFromPersistent = channel.unary_unary(
+                '/ChatService/LoadActiveUsersAndSubscribersFromPersistent',
+                request_serializer=chat__pb2.Empty.SerializeToString,
+                response_deserializer=chat__pb2.Empty.FromString,
+                _registered_method=True)
         self.CheckVersion = channel.unary_unary(
                 '/ChatService/CheckVersion',
                 request_serializer=chat__pb2.Version.SerializeToString,
@@ -100,6 +105,12 @@ class ChatServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def GetLeaderInfo(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def LoadActiveUsersAndSubscribersFromPersistent(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -178,6 +189,11 @@ def add_ChatServiceServicer_to_server(servicer, server):
                     servicer.GetLeaderInfo,
                     request_deserializer=chat__pb2.GetLeaderInfoRequest.FromString,
                     response_serializer=chat__pb2.GetLeaderInfoResponse.SerializeToString,
+            ),
+            'LoadActiveUsersAndSubscribersFromPersistent': grpc.unary_unary_rpc_method_handler(
+                    servicer.LoadActiveUsersAndSubscribersFromPersistent,
+                    request_deserializer=chat__pb2.Empty.FromString,
+                    response_serializer=chat__pb2.Empty.SerializeToString,
             ),
             'CheckVersion': grpc.unary_unary_rpc_method_handler(
                     servicer.CheckVersion,
@@ -262,6 +278,33 @@ class ChatService(object):
             '/ChatService/GetLeaderInfo',
             chat__pb2.GetLeaderInfoRequest.SerializeToString,
             chat__pb2.GetLeaderInfoResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def LoadActiveUsersAndSubscribersFromPersistent(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/ChatService/LoadActiveUsersAndSubscribersFromPersistent',
+            chat__pb2.Empty.SerializeToString,
+            chat__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
