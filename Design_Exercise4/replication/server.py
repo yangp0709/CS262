@@ -64,6 +64,16 @@ class PersistentStore:
             self.save()
             return count
         
+    def delete_message(self, sender, recipient, message_id):
+        print('filename', self.filename)
+        with self.lock:
+            recipient_info = self.users.get(recipient)
+            print('RECIPIENT INFO', recipient_info)
+            for msg in recipient_info["messages"]:
+                if msg["id"] == message_id and msg["from"] == sender and msg["status"] == "unread":
+                    msg["status"] = "deleted"
+            self.save()
+        
     def set_subscription(self, username, subscribed):
         with self.lock:
             if username in self.users:
@@ -404,14 +414,17 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
                             })
                             sub["cond"].notify()
                 break
+        self.store.save()
         if not found:
             return chat_pb2.DeleteUnreadMessageResponse(status="error", message="Message not found or already read")
+        
         rep_req = chat_pb2.ReplicateDeleteMessageRequest(sender=sender, recipient=recipient, message_id=message_id)
         ack_count = self.replicate_to_peers("ReplicateDeleteMessage", rep_req)
         if ack_count >= 2:
-            return chat_pb2.DeleteUnreadMessageResponse(status="success", message="Message deleted.")
+            print("[DELETEUNREADMESSAGE] replication successful")
         else:
-            return chat_pb2.DeleteUnreadMessageResponse(status="error", message="Replication failed")
+            print("[DELETEUNREADMESSAGE] replication failed")
+        return chat_pb2.DeleteUnreadMessageResponse(status="success", message="Message deleted.")
     
     def ReceiveMessages(self, request, context): # NO REPLICATION BECAUSE NO EDIT TO PERSISTENT
         """
@@ -496,18 +509,8 @@ class ReplicationService(chat_pb2_grpc.ReplicationServiceServicer):
         return chat_pb2.ReplicateMarkReadResponse(success=True)
     
     def ReplicateDeleteMessage(self, request, context):
-        sender = request.sender
-        recipient = request.recipient
-        message_id = request.message_id
-        recipient_info = self.store.users.get(recipient)
-        if not recipient_info:
-            return chat_pb2.ReplicateDeleteMessageResponse(success=False)
-        for msg in recipient_info["messages"]:
-            if msg["id"] == message_id and msg["from"] == sender and msg["status"] == "unread":
-                msg["status"] = "deleted"
-                self.store.save()
-                return chat_pb2.ReplicateDeleteMessageResponse(success=True)
-        return chat_pb2.ReplicateDeleteMessageResponse(success=False)
+        self.store.delete_message(request.sender, request.recipient, request.message_id)
+        return chat_pb2.ReplicateDeleteMessageResponse(success=True)
 
     def ReplicateDeleteAccount(self, request, context):
         username = request.username
