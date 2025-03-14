@@ -1,10 +1,13 @@
 import grpc
 from concurrent import futures
 import threading, time, uuid, json, os, sys
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 import chat_pb2
 import chat_pb2_grpc
 import multiprocessing
 import argparse
+import atexit
+import etcd3
 
 HEARTBEAT_INTERVAL = 2  # seconds
 SERVER_VERSION = "1.0.0"
@@ -133,8 +136,10 @@ class LeaderElection:
         self.state = "backup"
         self.leader_id = None
         self.lock = threading.Lock()
-        self.peer_status = {pid: True for pid, _ in peers}
-
+        # Initially, we assume peers are not up.
+        self.peer_status = {pid: False for pid, _ in peers}
+        # Track if a peer has ever been seen alive.
+        self.peer_ever_alive = {pid: False for pid, _ in peers}
     def ping_peer(self, address):
         try:
             channel = grpc.insecure_channel(address)
@@ -146,8 +151,22 @@ class LeaderElection:
 
     def elect(self):
         with self.lock:
-            # Compute peer_status first
-            self.peer_status = {pid: self.ping_peer(addr) for pid, addr in self.peers}
+            for pid, addr in self.peers:
+                is_alive = self.ping_peer(addr)
+                # If never seen alive, update status based on ping.
+                if not self.peer_ever_alive[pid]:
+                    if is_alive:
+                        self.peer_status[pid] = True
+                        self.peer_ever_alive[pid] = True
+                    else:
+                        self.peer_status[pid] = False
+                else:
+                    # If seen before, once it fails, mark as permanently dead.
+                    if not is_alive:
+                        if self.peer_status[pid] is True:
+                            print(f"Server {pid} has died and cannot come back.")
+                        self.peer_status[pid] = False
+
             print(self.peer_status)
 
             # Derive lower_alive from peer_status
@@ -161,7 +180,7 @@ class LeaderElection:
                 self.state = "backup"
                 candidate = self.server_id
                 for pid, addr in self.peers:
-                    if self.ping_peer(addr):
+                    if self.peer_status.get(pid, False):    
                         candidate = min(candidate, pid)
                 self.leader_id = candidate
             print(f"Server {self.server_id}: state={self.state}, leader={self.leader_id}")
@@ -593,6 +612,23 @@ if __name__ == "__main__":
                         help="Comma-separated list of external IP addresses for all servers (order: server1,server2,server3)")
     
     args = parser.parse_args()
+
+    lock_file = f"server_{args.id}.lock"
+    if os.path.exists(lock_file):
+        print(f"Server {args.id} is already running. Exiting.")
+        sys.exit(1)
+    try:
+        with open(lock_file, 'w') as f:
+            f.write(str(os.getpid()))
+    except Exception as e:
+        print(f"Error creating lock file: {e}")
+        sys.exit(1)
+
+    def cleanup():
+        if os.path.exists(lock_file):
+            os.remove(lock_file)
+    atexit.register(cleanup)
+
     # Parse the IPs:
     all_ips = args.all_ips.split(",")
     host = all_ips[args.id - 1]  # External IP of this server
