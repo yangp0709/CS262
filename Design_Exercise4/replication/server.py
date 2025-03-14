@@ -364,14 +364,6 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             context.set_details("User not found")
             context.set_code(grpc.StatusCode.NOT_FOUND)
             return chat_pb2.MarkReadResponse(message="")
-        # count = 0
-        # for msg in users["messages"]:
-        #     if msg["from"] == contact and msg["status"] == "unread" and (batch_num == 0 or count < batch_num):
-        #         msg["status"] = "read"
-        #         count += 1
-        #         if batch_num != 0 and count == batch_num:
-        #             break
-        # self.store.save()
         count = self.store.mark_read(username, contact, batch_num)
 
         rep_req = chat_pb2.ReplicateMarkReadRequest(
@@ -382,9 +374,10 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         ack_count = self.replicate_to_peers("ReplicateMarkRead", rep_req)
 
         if ack_count >= 2:
-            return chat_pb2.MarkReadResponse(message=f"Marked {count} messages as read.")
+            print("[MARKREAD] replication successful")
         else:
-            return chat_pb2.MarkReadResponse(message="error: Replication failed")
+            print("[MAKRREAD] replication failed")
+        return chat_pb2.MarkReadResponse(message=f"Marked {count} messages as read.")
     
     def DeleteUnreadMessage(self, request, context): # STILL NEED TO REPLICATE BECAUSE THIS DEPENDS ON HOW WE DO SUBSCRIBERS
         """
