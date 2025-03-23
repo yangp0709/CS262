@@ -20,18 +20,18 @@ class PersistentStore:
         self.filename = filename
         self.lock = threading.RLock()  
         self.users = {}  # {username: {"password": ..., "messages": [...], "subscribed": bool}}
-        self.subscribers_set = set()
+        self.subscribers_set = {} # {username: {"queue": [msg, ...]}}
         self.active_users_set = set()
         if os.path.exists(self.filename):
             with open(self.filename, 'r') as f:
                 data = json.load(f)
             self.users = data.get("users", {})
-            self.subscribers_set = set(data.get("subscribers", []))
+            self.subscribers_set = data.get("subscribers", {})
             self.active_users_set = set(data.get("active_users", []))
         else:
             # Initialize empty structures.
             self.users = {}
-            self.subscribers_set = set()
+            self.subscribers_set = {}
             self.active_users_set = set()
     
     def add_message(self, recipient, msg):
@@ -80,9 +80,24 @@ class PersistentStore:
             if username in self.users:
                 self.users[username]["subscribed"] = subscribed
                 if subscribed:
-                    self.subscribers_set.add(username)
+                    # Create an entry for subscriber info (with an empty queue) if it does not exist.
+                    if username not in self.subscribers_set:
+                        self.subscribers_set[username] = {"queue": []}
                 else:
-                    self.subscribers_set.discard(username)
+                    if username in self.subscribers_set:
+                        del self.subscribers_set[username]
+                self.save()
+
+    def append_subscriber_message(self, username, msg):
+        with self.lock:
+            if username in self.subscribers_set:
+                self.subscribers_set[username]["queue"].append(msg)
+                self.save()
+            
+    def pop_subscriber_message(self, username):
+        with self.lock:
+            if username in self.subscribers_set:
+                self.subscribers_set[username]["queue"].pop(0)
                 self.save()
 
     def add_active_user(self, username):
@@ -107,7 +122,7 @@ class PersistentStore:
         with self.lock:
             data = {
                 "users": self.users,
-                "subscribers": list(self.subscribers_set),
+                "subscribers": self.subscribers_set,
                 "active_users": list(self.active_users_set)
             }
             with open(self.filename, 'w') as f:
@@ -203,6 +218,7 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         # In-memory subscribers for active gRPC streams.
         self.subscribers_lock = threading.Lock()
         self.subscribers = {}  # {username: {"cond": threading.Condition(), "queue": []}}
+        self.load_from_persistent = True # Only allow loading from persistent once
 
     def replicate_to_peers(self, method, rep_req):
         """
@@ -246,8 +262,10 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             new server needs to load the acive_users and subscribers from the persistent
         """
         self.active_users = self.store.active_users_set
-        for username in self.store.subscribers_set:
-            self.subscribers[username] = {"cond": threading.Condition(), "queue": []}
+        if self.load_from_persistent:
+            for username, info in self.store.subscribers_set.items():
+                self.subscribers[username] = {"cond": threading.Condition(), "queue": info.get("queue", [])}
+            self.load_from_persistent = False
         return chat_pb2.Empty()
 
     def CheckVersion(self, request, context):
@@ -332,6 +350,13 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         }
 
         sent_message = self.store.add_message(recipient, msg)
+        with self.subscribers_lock:
+            if recipient in self.subscribers:
+                sub = self.subscribers[recipient]
+                with sub["cond"]:
+                    sub["queue"].append(msg)
+                    sub["cond"].notify()
+                # self.store.append_subscriber_message(recipient, msg) # For debugging
 
         if sent_message:
             rep_req = chat_pb2.ReplicateMessageRequest(
@@ -384,6 +409,7 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
                 while not sub["queue"]:
                     sub["cond"].wait()
                 msg = sub["queue"].pop(0)
+                # self.store.pop_subscriber_message(username) # For debugging
             yield chat_pb2.Message(
                 id=msg["id"],
                 sender=msg["from"],
@@ -433,13 +459,15 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
                     if recipient in self.subscribers:
                         sub = self.subscribers[recipient]
                         with sub["cond"]:
-                            sub["queue"].append({
+                            deletion_msg = {
                                 "id": msg["id"],
                                 "from": msg["from"],
                                 "message": "",
                                 "status": "deleted"
-                            })
+                            }
+                            sub["queue"].append(deletion_msg)
                             sub["cond"].notify()
+                        # self.store.append_subscriber_message(recipient, deletion_msg) # For debugging
                 break
         self.store.save()
         if not found:
@@ -623,21 +651,21 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    lock_file = f"server_{args.id}.lock"
-    if os.path.exists(lock_file):
-        print(f"Server {args.id} is already running. Exiting.")
-        sys.exit(1)
-    try:
-        with open(lock_file, 'w') as f:
-            f.write(str(os.getpid()))
-    except Exception as e:
-        print(f"Error creating lock file: {e}")
-        sys.exit(1)
+    # lock_file = f"server_{args.id}.lock"
+    # if os.path.exists(lock_file):
+    #     print(f"Server {args.id} is already running. Exiting.")
+    #     sys.exit(1)
+    # try:
+    #     with open(lock_file, 'w') as f:
+    #         f.write(str(os.getpid()))
+    # except Exception as e:
+    #     print(f"Error creating lock file: {e}")
+    #     sys.exit(1)
 
-    def cleanup():
-        if os.path.exists(lock_file):
-            os.remove(lock_file)
-    atexit.register(cleanup)
+    # def cleanup():
+    #     if os.path.exists(lock_file):
+    #         os.remove(lock_file)
+    # atexit.register(cleanup)
 
     # Parse the IPs:
     all_ips = args.all_ips.split(",")

@@ -40,12 +40,15 @@ undelivered = {} # saves undelivered message
 subscription_active = False
 all_host_port_pairs = []
 
+subscription_thread = None
+subscription_call = None
+
 SERVER_HOST = ""
 SERVER_PORT = ""
 stub = None
 
 def connect_to_leader():
-    global SERVER_HOST, SERVER_PORT, stub
+    global SERVER_HOST, SERVER_PORT, stub, subscription_thread, subscription_call, subscription_active
     print('checking leader')
     noleader = True
     for server in all_host_port_pairs:
@@ -65,6 +68,21 @@ def connect_to_leader():
                 stub = chat_pb2_grpc.ChatServiceStub(channel)
                 stub.LoadActiveUsersAndSubscribersFromPersistent(chat_pb2.Empty())
                 check_new_messages() # restart the check new messages loop
+
+                # If the subscription thread is still active, cancel it.
+                subscription_active = False
+                if subscription_call is not None:
+                    try:
+                        subscription_call.cancel()
+                        print("Canceled stale subscription call.")
+                    except Exception as e:
+                        print("Error canceling subscription call:", e)
+                # Restart a fresh subscription thread.
+                print("Logging globals for subscription",subscription_active, subscription_thread, subscription_call)
+                subscription_active = True
+                print("Restarting subscription thread.")
+                subscription_thread = threading.Thread(target=subscribe_thread, daemon=True)
+                subscription_thread.start()
             break
         except:
             print(f"Failed to connect to {server}")
@@ -178,7 +196,7 @@ def login():
 
             None
     """
-    global current_user, subscription_active
+    global current_user, subscription_active, subscription_thread
     username = username_entry.get().strip()
     password = password_entry.get().strip()
     if not username or not password:
@@ -193,7 +211,8 @@ def login():
         load_conversations()
         check_new_messages()
         subscription_active = True
-        threading.Thread(target=subscribe_thread, daemon=True).start()
+        subscription_thread = threading.Thread(target=subscribe_thread, daemon=True)
+        subscription_thread.start()
         username_entry.delete(0, tk.END)
         password_entry.delete(0, tk.END)
     else:
@@ -235,22 +254,33 @@ def subscribe_thread():
 
             None
     """
-    global subscription_active
+    global subscription_active, subscription_call, subscription_thread
+    thread_id = threading.current_thread().ident
+    print(f"[{current_user if current_user else 'Unknown'}] Starting subscribe_thread, Thread ID: {thread_id}")
     if not current_user:
         return
     request = chat_pb2.SubscribeRequest(username=current_user)
     try:
-        for message in stub.Subscribe(request):
+        subscription_call = stub.Subscribe(request)
+        for message in subscription_call:
             if not subscription_active:
+                print(f"[{current_user}] Subscription thread exiting because subscription_active is False.")
                 break
+            # Log received message details.
+            print(f"[{current_user}] Received live message: id={message.id}, from={message.sender}, text={message.message}, Thread ID: {thread_id}")
             sender = message.sender
             msg_data = {"id": message.id, "from": sender, "message": message.message, "status": message.status}
             if add_message(sender, msg_data):
+                print(f"[{current_user}] Message added to conversation with {sender}, Thread ID: {thread_id}.")
                 update_conversation_list()
                 if sender in chat_windows and chat_windows[sender].winfo_exists():
                     update_chat_window(sender)
-    except grpc.RpcError:
-        print("Subscription error")
+    except grpc.RpcError as e:
+        print(f"[{current_user}] Subscription error: {e} (Thread ID: {thread_id})")
+    finally:
+        subscription_call = None
+        subscription_thread = None
+        print(f"[{current_user}] Subscription thread (ID: {thread_id}) is terminating.")
 
 def load_conversations():
     """
@@ -264,14 +294,18 @@ def load_conversations():
 
             None
     """
-    response = stub.ReceiveMessages(chat_pb2.ReceiveMessagesRequest(username=current_user))
+    try:
+        response = stub.ReceiveMessages(chat_pb2.ReceiveMessagesRequest(username=current_user))
+    except grpc.RpcError as e:
+        print("load_conversations error:", e)
+        return  # Skip this round and try again later.
     messages = [{'id': m.id, 'from': m.sender, 'message': m.message, 'status': m.status} for m in response.messages]
     if response and response.status == "success":
         if len(messages) != 0:
-          for msg in messages:
-            sender = msg["from"]
-            add_message(sender, msg)
-          update_conversation_list()
+            for msg in messages:
+                sender = msg["from"]
+                add_message(sender, msg)
+            update_conversation_list()
     else:
         messagebox.showerror("Error", response.status if response.status else "No response from server.")
 
