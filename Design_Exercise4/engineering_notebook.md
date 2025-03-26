@@ -1,5 +1,7 @@
  # Overview
 
+https://github.com/yangp0709/CS262/tree/main/Design_Exercise4
+
 This chat application is built using gRPC for communication between clients and servers. The system is designed to be both persistent and fault tolerant. Persistence is achieved via local JSON files that store user data, messages, and subscription status. The system’s fault tolerance is ensured by a replication mechanism that requires a majority of servers to acknowledge write operations, making it 2‑fault tolerant in a three‑server configuration (which can be extended to as many servers as needed given the proper number of IPs). Leader election is implemented to determine which server is responsible for handling client requests and replicating data to backup nodes.
 
 ---
