@@ -32,8 +32,8 @@ To run the client on the terminal for replication implementation, run
 python3 client.py --all_ips <IP1,IP2,IP3>
 
 # Example setup
-python3 client.py --id 1 --all_ips 127.0.0.1,127.0.0.1,127.0.0.1 # Machine 1
-python3 client.py --id 2 --all_ips 127.0.0.1,127.0.0.1,127.0.0.1 # Machine 2
-python3 client.py --id 3 --all_ips 127.0.0.1,127.0.0.1,127.0.0.1 # Machine 3
+python3 client.py --all_ips 127.0.0.1,127.0.0.1,127.0.0.1 # Machine 1
+python3 client.py --all_ips 127.0.0.1,127.0.0.1,127.0.0.1 # Machine 2
+python3 client.py --all_ips 127.0.0.1,127.0.0.1,127.0.0.1 # Machine 3
 ```
 where <IP1,IP2,IP3> are the IPs of server machines.
